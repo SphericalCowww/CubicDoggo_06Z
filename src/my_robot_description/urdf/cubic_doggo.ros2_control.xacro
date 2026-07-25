@@ -165,7 +165,7 @@
         </joint>
     </ros2_control>
 
-    <ros2_control name="imu_bno055_sensor" type="sensor">
+    <!--ros2_control name="imu_bno055_sensor" type="sensor">
         <hardware>
             <plugin>imu_namespace/HardwareInterfaceBNO055_imu</plugin>
             <param name="i2c_bus">/dev/i2c-1</param>
@@ -187,5 +187,5 @@
             <state_interface name="euler.y"/>
             <state_interface name="euler.z"/>
         </sensor>
-    </ros2_control>
+    </ros2_control-->
 </robot>
