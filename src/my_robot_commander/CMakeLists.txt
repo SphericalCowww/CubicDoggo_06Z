@@ -28,11 +28,6 @@ install(TARGETS cubic_doggo_lifecycle cubic_doggo_lifecycle_imu
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(
-  DIRECTORY   include
-  DESTINATION include
-)
-
 ament_package()
 
 
