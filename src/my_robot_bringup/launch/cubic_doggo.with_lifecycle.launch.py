@@ -129,9 +129,8 @@ def generate_launch_description():
         rviz_node,
         joy_driver_node,
         joy_controller_node,
-        #imu_node,
         #peripheral_node,
-        #imu_broadcaster_spawner,
+        imu_broadcaster_spawner,
     ]
     
     return LaunchDescription(launch_entities)

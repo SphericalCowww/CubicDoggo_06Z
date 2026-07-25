@@ -2,8 +2,8 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
     <ros2_control name="cubic_doggo_controller" type="system">
         <hardware>
-            <!--plugin>mock_components/GenericSystem</plugin-->
-            <plugin>cubic_doggo_namespace/HardwareInterfaceU2D2_cubic_doggo</plugin>
+            <plugin>mock_components/GenericSystem</plugin>
+            <!--plugin>cubic_doggo_namespace/HardwareInterfaceU2D2_cubic_doggo</plugin-->
             <param name="port_name">/dev/ttyU2D2</param>
             <param name="baud_rate">2000000</param>
             <param name="servo1_channel_FL">11</param>
@@ -165,12 +165,16 @@
         </joint>
     </ros2_control>
 
-    <!--ros2_control name="imu_bno055_sensor" type="sensor">
+    <ros2_control name="imu_bno055_sensor" type="system">
         <hardware>
+            <plugin>mock_components/GenericSystem</plugin>
+
+    <!--ros2_control name="imu_bno055_sensor" type="sensor">
+            <hardware>
             <plugin>imu_namespace/HardwareInterfaceBNO055_imu</plugin>
             <param name="i2c_bus">/dev/i2c-1</param>
             <param name="address">0x28</param>
-            <param name="reset_pin">17</param>
+            <param name="reset_pin">17</param-->
         </hardware>
         <sensor name="imu_bno055">
             <state_interface name="linear_acceleration.x"/>
@@ -187,5 +191,5 @@
             <state_interface name="euler.y"/>
             <state_interface name="euler.z"/>
         </sensor>
-    </ros2_control-->
+    </ros2_control>
 </robot>
