@@ -2,7 +2,7 @@
 
 Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalCowww/CubicDoggo_06R">Cubic Doggo 06R High Mobility</a>. The goal is to incorporate a simulation and reinforcement learning for walking gait control; IMU is required.
 
-## Setting up the Isaac Sim
+## Setting up Isaac Sim & Issac Lab
 
 ### Hardware Reference
 
@@ -20,7 +20,7 @@ Planned hardware spec (<a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0
 
 ### Installation
 
-For ROS2 Jazzy installation with IMU, check (<a href="https://github.com/SphericalCowww/CubicDoggo_06R">GitHub</a>). To install Isaac Sim and Isaac Lab,
+For ROS2 Jazzy installation with IMU, check (<a href="https://github.com/SphericalCowww/CubicDoggo_06R">GitHub</a>). To install Isaac Sim & Issac Lab,
 
     sudo apt update
     sudo apt upgrade
@@ -45,12 +45,13 @@ For ROS2 Jazzy installation with IMU, check (<a href="https://github.com/Spheric
     sudo apt install psensor           # check psensor App, for monitoring temperatures 
     # check also APP "NVIDIA X Server Settings" to adjust GPU settings
 
-And to check for the installation (may need to wait a bit):
+And to check for the installation:
 
     source /opt/ros/jazzy/setup.bash
     source isaaclab_env/bin/activate
     python3 -c "import rclpy"               # check if connected to ROS2 Jazzy installed
     isaacsim                                # wait a bit if not responding
+    # the following are Isaac Lab trainings
     python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --num_envs=1000
     python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --headless
     # check "Mean reward", wait 1 hr
