@@ -20,92 +20,45 @@ Planned hardware spec (<a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0
 
 ### Installation
 
-To install Isaac Sim, follow <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/install_workstation.html">installation guide</a> and get zip file from <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/download.html">download links</a>:
+To install Isaac Sim and Isaac Lab,
 
     sudo apt update
-    sudo apt install software-properties-common -y
-    sudo add-apt-repository ppa:deadsnakes/ppa -y
-    sudo apt update
-    sudo apt install python3.11 python3.11-venv python3.11-dev
-
-    python3.11 -m venv isaacsim-env
-    source isaacsim-env/bin/activate
-    pip install --upgrade pip
+    sudo apt upgrade
+    sudo apt install python3.12-venv python3.12-dev build-essential cmake -y
+    python3.12 -m venv isaaclab_env
+    source isaaclab_env/bin/activate
+    pip install --upgrade pip uv
     pip install isaacsim[compatibility-check]   # do not install any other packages yet
-    isaacsim isaacsim.exp.compatibility_check   # if see orange: Settings => Power => Power Mode => Performance
+    pip install packaging setuptools
+    isaacsim isaacsim.exp.compatibility_check   # if see orange: Settings => Power => Power Mode => Performance
+    uv pip install "isaacsim[all,extscache]==6.0.1" --extra-index-url https://pypi.nvidia.com --index-strategy unsafe-best-match --prerelease=allow
+    # installed under isaaclab_env/lib/python3.12/site-packages/isaacsim/
+    uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+    git clone https://github.com/isaac-sim/IsaacLab.git isaaclab
+    cd isaaclab
+    ./isaaclab.sh --install
     deactivate
 
     sudo snap install code --classic   # installing Visual Studio Code
-
-    mkdir isaacsim
-    unzip ~/Downloads/isaac-sim-standalone-5.1.0-linux-x86_64.zip -d isaacsim
-    cd isaacsim
-    ./post_install.sh
-    ./isaac-sim.sh # after the initial opening, an APP "Isaac Sim" actually appears
-
-    sudo apt install nvtop
-    nvtop                        # for monitoring GPU
-    sudo apt install psensor
-    # check psensor App, for monitoring temperatures 
+    sudo apt install nvtop             # for monitoring GPU
+    nvtop                              # for monitoring GPU
+    sudo apt install psensor           # check psensor App, for monitoring temperatures 
     # check also APP "NVIDIA X Server Settings" to adjust GPU settings
-
-
-To load the assets locally, follow <a href="https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_faq.html">"Assets" guide</a> and get zip file from <a href="https://docs.isaacsim.omniverse.nvidia.com/6.0.0/installation/download.html">download links (3 parts)</a>:
-
-    mkdir /home/cubicdoggo/Documents/Kit/assets
-    cd /home/cubicdoggo/Documents/Kit/assets
-    7z x isaac-sim-assets-complete-5.1.0.zip.001
-    vim /home/cubicdoggo/Documents/isaacsim/apps/isaacsim.exp.base.kit
-    # following: https://docs.isaacsim.omniverse.nvidia.com/latest/installation/install_faq.html
-    # find: 
-    ## [settings]
-    # add below:
-    ## persistent.isaac.asset_root.default = ".../Kit/assets/Isaac/5.1"
-    ## exts."isaacsim.gui.content_browser".folders = [
-    ##     "/home/cubicdoggo/Documents/Kit/assets/Isaac/5.1/Isaac/Robots",
-    ##     "/home/cubicdoggo/Documents/Kit/assets/Isaac/5.1/Isaac/People",
-    ##     "/home/cubicdoggo/Documents/Kit/assets/Isaac/5.1/Isaac/IsaacLab",
-    ##     "/home/cubicdoggo/Documents/Kit/assets/Isaac/5.1/Isaac/Props",
-    ##     "/home/cubicdoggo/Documents/Kit/assets/Isaac/5.1/Isaac/Environments",
-    ##     "/home/cubicdoggo/Documents/Kit/assets/Isaac/5.1/Isaac/Materials",
-    ##     "/home/cubicdoggo/Documents/Kit/assets/Isaac/5.1/Isaac/Samples",
-    ##     "/home/cubicdoggo/Documents/Kit/assets/Isaac/5.1/Isaac/Sensors",
-    ## ]
-    # open Issac Sim
-    # load the assets directly from "Content" on the bottom left
-
-To install Isaac Lab, follow <a href="https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html">installation guide</a>:
-
-    mkdir miniconda3
-    cd miniconda3/
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    bash Miniconda3-latest-Linux-x86_64.sh -b -u -p .
-    ./bin/conda init bash
-    source /home/cubicdoggo/.bashrc
-
-    conda create -n isaaclab_env python=3.11
-    # update .bashrc
-    # close terminal and restart
-    conda activate isaaclab_env
-    pip install --upgrade pip
-    pip install "isaacsim[all,extscache]==5.1.0" --extra-index-url https://pypi.nvidia.com
-    pip install -U torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu128
-    git clone https://github.com/isaac-sim/IsaacLab.git
-    sudo apt install cmake build-essential
-    mv IsaacLab/ isaaclab
-    cd isaaclab
-    mkdir -p /home/cubicdoggo/Documents/miniconda3/envs/isaaclab_env/lib/python3.11/site-packages/isaacsim/.vscode
-    ln -sf /home/cubicdoggo/Documents/isaacsim/.vscode/settings.json /home/cubicdoggo/Documents/miniconda3/envs/isaaclab_env/lib/python3.11/site-packages/isaacsim/.vscode/settings.json
-    ./isaaclab.sh --install 
 
 And to check for the installation (may need to wait a bit):
 
+    source /opt/ros/jazzy/setup.bash
+    source isaaclab_env/bin/activate
+    python3 -c "import rclpy"               # check if connected to ROS2 Jazzy installed
+    isaacsim                                # wait a bit if not responding
     python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --num_envs=1000
     python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --headless
     # check "Mean reward", wait 1 hr
     python scripts/reinforcement_learning/rsl_rl/play.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --num_envs=20
     # to find the saved trained files:
-    cd /home/cubicdoggo/Documents/isaaclab/logs/rsl_rl/anymal_c_rough
+    cd isaaclab/logs/rsl_rl/anymal_c_rough
+    # on another window
+    nvtop                              # checking if GPU is being used
 
 ### URDF Import
 
