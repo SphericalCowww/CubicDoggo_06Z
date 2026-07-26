@@ -52,6 +52,7 @@ And to check for the installation:
     python3 -c "import rclpy"               # check if connected to ROS2 Jazzy installed
     isaacsim                                # wait a bit if not responding
     # the following are Isaac Lab trainings
+    cd isaaclab
     python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --num_envs=1000
     python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --headless
     # check "Mean reward", wait 1 hr
