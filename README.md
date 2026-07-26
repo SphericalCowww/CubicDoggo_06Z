@@ -20,7 +20,7 @@ Planned hardware spec (<a href="https://docs.isaacsim.omniverse.nvidia.com/5.1.0
 
 ### Installation
 
-To install Isaac Sim and Isaac Lab,
+For ROS2 Jazzy installation with IMU, check (<a href="https://github.com/SphericalCowww/CubicDoggo_06R">GitHub</a>). To install Isaac Sim and Isaac Lab,
 
     sudo apt update
     sudo apt upgrade
@@ -57,8 +57,9 @@ And to check for the installation (may need to wait a bit):
     python scripts/reinforcement_learning/rsl_rl/play.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --num_envs=20
     # to find the saved trained files:
     cd isaaclab/logs/rsl_rl/anymal_c_rough
+    
     # on another window
-    nvtop                              # checking if GPU is being used
+    nvtop                                  # checking if GPU is being used
 
 ### URDF Import
 
