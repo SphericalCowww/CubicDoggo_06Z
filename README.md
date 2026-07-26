@@ -55,10 +55,11 @@ And to check for the installation:
     cd isaaclab
     python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --num_envs=1000
     python scripts/reinforcement_learning/rsl_rl/train.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --headless
-    # check "Mean reward", wait 1 hr
-    python scripts/reinforcement_learning/rsl_rl/play.py --task=Isaac-Velocity-Rough-Anymal-C-v0 --num_envs=20
+    # check "Mean reward" in output, wait 1 hr
+    # after training, the following should open a GUI
+    ./isaaclab.sh play --rl_library rsl_rl --task Isaac-Velocity-Rough-Anymal-C-v0 --num_envs 20 --enable_cameras
     # to find the saved trained files:
-    cd isaaclab/logs/rsl_rl/anymal_c_rough
+    ls isaaclab/logs/rsl_rl/anymal_c_rough
     
     # on another window
     nvtop                                  # checking if GPU is being used
