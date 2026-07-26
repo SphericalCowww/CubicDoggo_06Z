@@ -63,6 +63,8 @@ And to check for the installation:
     # on another window
     nvtop                                  # checking if GPU is being used
 
+Honestly, it's quite a big deal that now ROS2 Jazzy, Isaac Sim, PyTorch, and Isaac Lab all work under Python 3.12!
+
 ### URDF Import
 
     ros2 run xacro xacro cubic_doggo.urdf.xacro > cubic_doggo.urdf
