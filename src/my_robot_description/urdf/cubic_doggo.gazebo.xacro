@@ -89,7 +89,7 @@
         <joint name="servo2_servo2_padding_FL">
             <command_interface name="position"/>
             <state_interface name="position">
-              <param name="initial_value">3.14</param>
+              <param name="initial_value">2.54</param>
             </state_interface>
             <state_interface name="velocity">
               <param name="initial_value">0.0</param>
@@ -101,7 +101,7 @@
         <joint name="servo3_calfFeet_FL">
             <command_interface name="position"/>
             <state_interface name="position">
-              <param name="initial_value">3.14</param>
+              <param name="initial_value">4.14</param>
             </state_interface>
             <state_interface name="velocity">
               <param name="initial_value">0.0</param>
@@ -125,7 +125,7 @@
         <joint name="servo2_servo2_padding_FR">
             <command_interface name="position"/>
             <state_interface name="position">
-              <param name="initial_value">3.14</param>
+              <param name="initial_value">3.74</param>
             </state_interface>
             <state_interface name="velocity">
               <param name="initial_value">0.0</param>
@@ -137,7 +137,7 @@
         <joint name="servo3_calfFeet_FR">
             <command_interface name="position"/>
             <state_interface name="position">
-              <param name="initial_value">3.14</param>
+              <param name="initial_value">2.14</param>
             </state_interface>
             <state_interface name="velocity">
               <param name="initial_value">0.0</param>
@@ -161,7 +161,7 @@
         <joint name="servo2_servo2_padding_BL">
             <command_interface name="position"/>
             <state_interface name="position">
-              <param name="initial_value">3.14</param>
+              <param name="initial_value">2.54</param>
             </state_interface>
             <state_interface name="velocity">
               <param name="initial_value">0.0</param>
@@ -173,7 +173,7 @@
         <joint name="servo3_calfFeet_BL">
             <command_interface name="position"/>
             <state_interface name="position">
-              <param name="initial_value">3.14</param>
+              <param name="initial_value">4.14</param>
             </state_interface>
             <state_interface name="velocity">
               <param name="initial_value">0.0</param>
@@ -197,7 +197,7 @@
         <joint name="servo2_servo2_padding_BR">
             <command_interface name="position"/>
             <state_interface name="position">
-              <param name="initial_value">3.14</param>
+              <param name="initial_value">3.74</param>
             </state_interface>
             <state_interface name="velocity">
               <param name="initial_value">0.0</param>
@@ -209,7 +209,7 @@
         <joint name="servo3_calfFeet_BR">
             <command_interface name="position"/>
             <state_interface name="position">
-              <param name="initial_value">3.14</param>
+              <param name="initial_value">2.14</param>
             </state_interface>
             <state_interface name="velocity">
               <param name="initial_value">0.0</param>

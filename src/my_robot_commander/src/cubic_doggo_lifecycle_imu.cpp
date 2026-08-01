@@ -64,10 +64,18 @@ public:
         RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): %s", current_lifecycle_state_.c_str());
 
         auto now = this->now();
-        if (now.seconds() < 1577836800) { 
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
-                                       "system clock not synced (Still in 1970s). Failing to restart...");
+        bool use_sim_time = false;
+        this->get_parameter("use_sim_time", use_sim_time);    
+        if (use_sim_time == true) {
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+                                      "simulation does not require clock synchronization");
+        } else if (now.seconds() < 1577836800) { // timestamp for 2020
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): system clock not synced " 
+                                       "now at %.6f sec (%ld ns)", now.seconds(), now.nanoseconds());
             return CallbackReturn::FAILURE;
+        } else {
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): system clock now synced "
+                                      "at %.6f sec (%ld ns)", now.seconds(), now.nanoseconds());
         }
         if (!exec_action_client_->wait_for_action_server(std::chrono::seconds(2))) {
             RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
