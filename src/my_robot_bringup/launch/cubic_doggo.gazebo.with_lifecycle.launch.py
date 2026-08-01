@@ -40,7 +40,15 @@ def generate_launch_description():
         package="ros_gz_sim",
         executable="create",
         output="screen",
-        arguments=["-topic", "robot_description"],
+        arguments=[
+            "-topic", "robot_description",
+            "-x", "0",
+            "-y", "0",
+            "-z", "0.25",       # meters
+            "-R", "3.14159",    # roll
+            "-P", "0",          # pitch
+            "-Y", "0",          # yaw
+        ]
     )
     gz_ros2_bridge = Node(
         package="ros_gz_bridge",
