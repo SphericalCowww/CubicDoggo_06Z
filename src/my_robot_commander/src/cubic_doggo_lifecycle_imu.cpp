@@ -64,19 +64,11 @@ public:
         RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): %s", current_lifecycle_state_.c_str());
 
         auto now = this->now();
-        bool use_sim_time = false;
-        this->get_parameter("use_sim_time", use_sim_time);    
-        if (use_sim_time == true) {
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
-                                      "simulation does not require clock synchronization");
-        } else if (now.seconds() < 1577836800) { // timestamp for 2020
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): system clock not synced " 
-                                       "now at %.6f sec (%ld ns)", now.seconds(), now.nanoseconds());
+        if (now.seconds() < 1577836800) { 
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+                                       "system clock not synced (Still in 1970s). Failing to restart...");
             return CallbackReturn::FAILURE;
-        } else {
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): system clock now synced "
-                                      "at %.6f sec (%ld ns)", now.seconds(), now.nanoseconds());
-        } 
+        }
         if (!exec_action_client_->wait_for_action_server(std::chrono::seconds(2))) {
             RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
                                        "ExecuteTrajectory action server not available");
@@ -135,6 +127,11 @@ public:
         walk_service_ = this->create_service<std_srvs::srv::SetBool>(
             "leg_walk_toggle", 
             std::bind(&CubicDoggoLifecycleManager::handleWalkRequest_, this, _1, _2), 
+            rclcpp::ServicesQoS(), 
+            callback_group_);
+        imu_service_ = this->create_service<std_srvs::srv::SetBool>(
+            "leg_imu_toggle",
+            std::bind(&CubicDoggoLifecycleManager::handleIMUrequest_, this, _1, _2), 
             rclcpp::ServicesQoS(), 
             callback_group_);
 
@@ -197,6 +194,7 @@ public:
 
         keep_running_thread_ = true;
         is_walking_          = false; 
+        is_imu_              = false; 
         walking_thread_      = std::thread(&CubicDoggoLifecycleManager::controlLoop_, this);
 
         current_lifecycle_state_ = "state_stationary";
@@ -214,6 +212,7 @@ public:
 
         keep_running_thread_ = false;
         is_walking_          = false;
+        is_imu_              = false;
         if (walking_thread_.joinable()) {
             walking_thread_.join();
         }
@@ -249,6 +248,7 @@ public:
 
         keep_running_thread_ = false;
         is_walking_          = false;
+        is_imu_              = false;
         if (walking_thread_.joinable()) {
             walking_thread_.join();
         }
@@ -385,9 +385,9 @@ private:
             double target_y = home_y_[legIdx];
             double target_z = home_z_[legIdx];
 
-            //IMU Correction//////////////////////////////////////////////////////////////////////////////////////
-            target_z -= imu_z_corr_[legIdx];
-            //////////////////////////////////////////////////////////////////////////////////////////////////////
+            if(is_imu_ == true) {
+                target_z -= imu_z_corr_[legIdx];
+            }
 
             bool is_group_a = ((legIdx == 0) || (legIdx == 3));
             bool is_group_b = ((legIdx == 1) || (legIdx == 2));
@@ -468,6 +468,12 @@ private:
         response->success = true;
         response->message = is_walking_ ? "walking started" : "walking stopped";
     }
+    void handleIMUrequest_(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+                           std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
+        is_imu_ = request->data;
+        response->success = true;
+        response->message = is_imu_ ? "imu started" : "imu stopped";
+    }
     void controlLoop_() {
         rclcpp::get_logger("").set_level(rclcpp::Logger::Level::Warn);        // for silencing output
 
@@ -493,7 +499,9 @@ private:
         double waypoint_dt_stand = 1.0/double(update_rate_);    // standing require faster trajectory
         double IK_bufferTime     = 0.10;                        // time at end of cycle buffer for IK calc
         double swing_fraction    = 0.32;                        // creep < 0.25 < stable trot < 0.5 < trot
-        double lift = 0.02, x_stride_max = 0.02, y_stride_max = 0.03, x_shift = 0.0, y_shift = -0.007;
+        double x_stride_max = 0.02, y_stride_max = 0.03;
+        double lift0 = 0.04, x_shift0 = 0.0, y_shift0 = -0.007;
+        double lift1 = 0.02, x_shift1 = 0.0, y_shift1 = -0.007;
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////
         pitch_pid_.set_gains(kP, kI, 0.0, aw_strat.i_max, aw_strat.i_min, aw_strat);     //P, I, D, upp, low
         roll_pid_ .set_gains(kP, kI, 0.0, aw_strat.i_max, aw_strat.i_min, aw_strat);
@@ -505,6 +513,7 @@ private:
         double gait_phase = 0;
         double waypoint_dt = 1.0/double(update_rate_);
         double x_stride = 0.0, y_stride = 0.0;    
+        double lift = lift0, x_shift = x_shift0, y_shift = y_shift0;
         rclcpp::Time previous_time = this->get_clock()->now();
         while (keep_running_thread_ && rclcpp::ok()) {
             rclcpp::Time current_time = this->get_clock()->now();
@@ -580,6 +589,11 @@ private:
                 waypoint_dt = waypoint_dt_walk;
                 x_stride = target_x_stride_*x_stride_max;
                 y_stride = target_y_stride_*y_stride_max;
+                if (is_imu_ == false) {
+                    lift = lift0, x_shift = x_shift0, y_shift = y_shift0;
+                } else {
+                    lift = lift1, x_shift = x_shift1, y_shift = y_shift1;
+                }
                 target_state = sineWalkGait_(gait_phase, swing_fraction, lift, x_stride, y_stride, x_shift, y_shift);
                 waypoint_iter_ = (waypoint_iter_ + 1) % waypoint_N_walk;
             } else {
@@ -691,10 +705,12 @@ private:
     int waypoint_iter_ = 0;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr state_service_;
     rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr walk_service_; 
+    rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr imu_service_; 
     moveit::core::RobotStatePtr last_walk_state_;
     std::string       idle_name_ = "rest";
     std::atomic<bool> is_busy_   {false};
     std::atomic<bool> is_walking_{false};
+    std::atomic<bool> is_imu_    {false};
     std::atomic<bool> control_initialized_{false};
     std::atomic<bool> keep_running_thread_{false};
     std::thread walking_thread_;
