@@ -4,6 +4,13 @@ Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalC
 
 ## Gazebo
 
+Simply:
+
+    cd CubicDoggo_06Z
+    colcon build
+    source install/setup.bash
+    ros2 launch my_robot_bringup cubic_doggo.gazebo.with_lifecycle.launch.py
+
 ## PyBullet
 
 ## Acknowledgements
