@@ -1,35 +1,262 @@
 <?xml version="1.0"?>
-<robot name="my_robot_leg" xmlns:xacro="http://www.ros.org/wiki/xacro">
+<robot name="cubic_doggo" xmlns:xacro="http://www.ros.org/wiki/xacro">
     <xacro:include filename="common_properties.xacro" />
-    <xacro:include filename="my_robot_leg.xacro" />
+    <xacro:include filename="cubic_doggo_legF.xacro"/>
+    <xacro:include filename="cubic_doggo_legB.xacro"/>
+<!-- ================================================================================================================================== -->
+    <link name="world"/>
 
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/CADv2/baseTorso.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.056 0.252 0.004"/>
+            </geometry>
+            <origin xyz="0.0 0.0 0.002" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.06" x="0.056" y="0.252" z="0.004" o_xyz="0 0 0.002" o_rpy="0 0 0"/>
+    </link>
+    <joint name="world_base_link" type="fixed">
+        <parent link="world"/>
+        <child  link="base_link"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <link name="base_plate_B">
+        <visual>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/CADv2/basePlate.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.141 0.036 0.004"/>
+            </geometry>
+            <origin xyz="0 0.018 0.002" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.0336" x="0.141" y="0.036" z="0.004" o_xyz="0 0.018 0.002" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_base_plate_B" type="fixed">
+        <parent link="base_link"/>
+        <child  link="base_plate_B"/>
+        <origin xyz="0 -0.066 0.004" rpy="0 0 0"/>
+    </joint>
+
+    <link name="base_plate_F">
+        <visual>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/CADv2/basePlate.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.141 0.036 0.004"/>
+            </geometry>
+            <origin xyz="0 0.018 0.002" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.0336" x="0.141" y="0.036" z="0.004" o_xyz="0 0.018 0.002" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_base_plate_F" type="fixed">
+        <parent link="base_link"/>
+        <child  link="base_plate_F"/>
+        <origin xyz="0 0.091 0.004" rpy="0 0 ${urdf_pi}"/>
+    </joint>    
+<!-- ================================================================================================================================== -->
+    <xacro:doggo_legF prefix='FL'/>
+    <xacro:doggo_legF prefix='FR'/>
+    <xacro:doggo_legB prefix='BL'/>
+    <xacro:doggo_legB prefix='BR'/>   
+<!-- ================================================================================================================================== -->    
     <ros2_control name="GazeboInterface" type="system">
         <hardware>
             <plugin>gz_ros2_control/GazeboSimSystem</plugin>
         </hardware>
-        <joint name="servo1_servo1_padding">
-                <command_interface name="position"/>
-                <state_interface name="position">
-                  <param name="initial_value">3.14</param>
-                </state_interface>
-            </joint>
-            <joint name="servo2_servo2_padding">
-                <command_interface name="position"/>
-                <state_interface name="position">
-                  <param name="initial_value">3.14</param>
-                </state_interface>
-            </joint>
-            <joint name="servo3_calfFeet">
-                <command_interface name="position"/>
-                <state_interface name="position">
-                  <param name="initial_value">3.14</param>
-                </state_interface>
-            </joint>
+        <joint name="servo1_servo1_padding_FL">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo2_servo2_padding_FL">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo3_calfFeet_FL">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo1_servo1_padding_FR">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo2_servo2_padding_FR">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo3_calfFeet_FR">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo1_servo1_padding_BL">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo2_servo2_padding_BL">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo3_calfFeet_BL">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo1_servo1_padding_BR">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo2_servo2_padding_BR">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
+        <joint name="servo3_calfFeet_BR">
+            <command_interface name="position"/>
+            <state_interface name="position">
+              <param name="initial_value">3.14</param>
+            </state_interface>
+            <state_interface name="velocity">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+            <state_interface name="effort">
+              <param name="initial_value">0.0</param>
+            </state_interface>
+        </joint>
     </ros2_control>
-
     <gazebo>
         <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
-            <parameters>$(find my_robot_bringup)/config/my_robot_controllers.yaml</parameters>
+            <parameters>$(find my_robot_bringup)/config/cubic_doggo_controllers.yaml</parameters>
         </plugin>
     </gazebo>
+
+    <!--ros2_control name="imu_bno055_sensor" type="system">
+        <hardware>
+            <plugin>mock_components/GenericSystem</plugin>
+        </hardware>
+        <sensor name="imu_bno055">
+            <state_interface name="linear_acceleration.x"/>
+            <state_interface name="linear_acceleration.y"/>
+            <state_interface name="linear_acceleration.z"/>
+            <state_interface name="angular_velocity.x"/>
+            <state_interface name="angular_velocity.y"/>
+            <state_interface name="angular_velocity.z"/>
+            <state_interface name="orientation.w"/>
+            <state_interface name="orientation.x"/>
+            <state_interface name="orientation.y"/>
+            <state_interface name="orientation.z"/>
+            <state_interface name="euler.x"/>
+            <state_interface name="euler.y"/>
+            <state_interface name="euler.z"/>
+        </sensor>
+    </ros2_control>
+    <gazebo>
+        <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu">
+        </plugin>
+    </gazebo-->
 </robot>
+
+
+
