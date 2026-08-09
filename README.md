@@ -1,10 +1,10 @@
 # CubicDoggo 06Z: Homemade 12-DOF 4-Legged Robot Recipe with Simulation and Reinforcement Learning
 
-Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalCowww/CubicDoggo_06R">Cubic Doggo 06R High Mobility</a>. The goal is to incorporate a simulation (Gazebo) and reinforcement learning (PyBullet) for walking gait control. 
+Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalCowww/CubicDoggo_06R">Cubic Doggo 06R High Mobility</a>. The goal is to integrate a simulation (Gazebo) and reinforcement learning (PyBullet) to control walking gait. 
 
 ## Gazebo
 
-Simply:
+Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as camera location. Then run:
 
     cd CubicDoggo_06Z
     colcon build
