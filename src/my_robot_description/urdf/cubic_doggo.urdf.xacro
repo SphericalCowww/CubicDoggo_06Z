@@ -13,7 +13,7 @@
                 <mesh filename="package://my_robot_description/mesh/CADv2/baseTorso.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <material name="grey"/>
+            <material name="white"/>
         </visual>
         <collision>
             <geometry>
@@ -35,7 +35,7 @@
                 <mesh filename="package://my_robot_description/mesh/CADv2/basePlate.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <material name="grey"/>
+            <material name="white"/>
         </visual>
         <collision>
             <geometry>
@@ -57,7 +57,7 @@
                 <mesh filename="package://my_robot_description/mesh/CADv2/basePlate.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <material name="grey"/>
+            <material name="white"/>
         </visual>
         <collision>
             <geometry>

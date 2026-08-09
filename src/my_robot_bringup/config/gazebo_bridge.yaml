@@ -3,3 +3,11 @@
   ros_type_name: "rosgraph_msgs/msg/Clock"
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
+
+- ros_topic_name: "/imu"
+  # gz_topic_name from <sensor name="imu_sensor" type="imu"> in src/my_robot_description/urdf/cubic_doggo.gazebo.xacro
+  gz_topic_name: "/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+

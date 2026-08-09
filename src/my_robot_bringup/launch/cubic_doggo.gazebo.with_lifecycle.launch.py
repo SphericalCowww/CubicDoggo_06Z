@@ -95,8 +95,8 @@ def generate_launch_description():
     )
     lifecycle_node = Node(
         package="my_robot_commander",
-        executable="cubic_doggo_lifecycle",
-        #executable="cubic_doggo_lifecycle_imu",
+        #executable="cubic_doggo_lifecycle",
+        executable="cubic_doggo_lifecycle_imu",
         parameters=[
             moveit_config.robot_description,           # the URDF math
             moveit_config.robot_description_semantic,  # the SRDF 
@@ -153,7 +153,7 @@ def generate_launch_description():
         #rviz_node,
         joy_driver_node,
         joy_controller_node,
-        #imu_broadcaster_spawner,    
+        imu_broadcaster_spawner,    
     ]
     return LaunchDescription(launch_entities)
 

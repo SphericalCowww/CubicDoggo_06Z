@@ -164,7 +164,7 @@
             <geometry>
                 <mesh filename="package://my_robot_description/mesh/CADv2/thighInner.stl" scale="0.001 0.001 0.001"/>
             </geometry>
-            <material name="blue"/>
+            <material name="white"/>
             <origin xyz="0 0 0" rpy="${rflc*urdf_pi/2} 0 ${urdf_pi/2}"/>
         </visual>
         <collision>
@@ -187,7 +187,7 @@
             <geometry>
                 <mesh filename="package://my_robot_description/mesh/CADv2/thighOuter.stl" scale="0.001 0.001 0.001"/>
             </geometry>
-            <material name="blue"/>
+            <material name="white"/>
             <origin xyz="0 0 0" rpy="${-urdf_pi/2} ${urdf_pi/2-rflc*urdf_pi/2} ${-rflc*urdf_pi/2}"/>
         </visual>
         <collision>
@@ -233,7 +233,7 @@
             <geometry>
                 <mesh filename="package://my_robot_description/mesh/CADv2/calfFeetSpring.stl" scale="0.001 0.001 0.001"/>
             </geometry>
-            <material name="purple"/>
+            <material name="white"/>
             <origin xyz="0.004 0.008 0.038" rpy="0 ${urdf_pi/2} ${urdf_pi}"/>
         </visual>
         <collision>
@@ -287,7 +287,7 @@
                 <sphere radius="0.013"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <material name="dark_purple"/>
+            <material name="white"/>
         </visual>
         <collision>
             <geometry>

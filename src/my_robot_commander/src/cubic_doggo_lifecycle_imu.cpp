@@ -483,7 +483,7 @@ private:
         response->message = is_imu_ ? "imu started" : "imu stopped";
     }
     void controlLoop_() {
-        rclcpp::get_logger("").set_level(rclcpp::Logger::Level::Warn);        // for silencing output
+        //rclcpp::get_logger("").set_level(rclcpp::Logger::Level::Warn);        // for silencing output
 
         // https://docs.ros.org/en/jazzy/p/control_toolbox/generated/structcontrol__toolbox_1_1AntiWindupStrategy.html
         control_toolbox::AntiWindupStrategy aw_strat;

@@ -10,7 +10,7 @@
                 <mesh filename="package://my_robot_description/mesh/CADv2/baseTorso.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <material name="grey"/>
+            <material name="white"/>
         </visual>
         <collision>
             <geometry>
@@ -27,7 +27,7 @@
                 <mesh filename="package://my_robot_description/mesh/CADv2/basePlate.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <material name="grey"/>
+            <material name="white"/>
         </visual>
         <collision>
             <geometry>
@@ -49,7 +49,7 @@
                 <mesh filename="package://my_robot_description/mesh/CADv2/basePlate.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
-            <material name="grey"/>
+            <material name="white"/>
         </visual>
         <collision>
             <geometry>
@@ -64,12 +64,44 @@
         <child  link="base_plate_F"/>
         <origin xyz="0 0.091 0.004" rpy="0 0 ${urdf_pi}"/>
     </joint>    
+
+    <link name="imu_board">
+        <visual>
+            <geometry>
+                <box size="0.027 0.021 0.004"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.027 0.021 0.004"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.005" x="0.027" y="0.021" z="0.004" o_xyz="0 0 0" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_imu_board" type="fixed">
+        <parent link="base_link"/>
+        <child  link="imu_board"/>
+        <origin xyz="0.0 0.0475 -0.002" rpy="0 0 0"/>
+    </joint>
 <!-- ================================================================================================================================== -->
     <xacro:doggo_legF prefix='FL'/>
     <xacro:doggo_legF prefix='FR'/>
     <xacro:doggo_legB prefix='BL'/>
     <xacro:doggo_legB prefix='BR'/>   
-<!-- ================================================================================================================================== -->    
+
+<!-- ================================================================================================================================== -->
+    <gazebo reference="imu_board">
+        <sensor name="imu_bno055" type="imu">
+            <always_on>1</always_on>
+            <update_rate>100</update_rate>
+            <visualize>true</visualize>
+            <topic>imu</topic>
+            <gz_frame_id>imu_board</gz_frame_id>
+        </sensor>
+    </gazebo>
     <ros2_control name="GazeboInterface" type="system">
         <hardware>
             <plugin>gz_ros2_control/GazeboSimSystem</plugin>
@@ -218,37 +250,27 @@
               <param name="initial_value">0.0</param>
             </state_interface>
         </joint>
+        <!-- ========================================================================================================================== -->
+        <sensor name="imu_bno055">
+            <state_interface name="orientation.x"/>
+            <state_interface name="orientation.y"/>
+            <state_interface name="orientation.z"/>
+            <state_interface name="orientation.w"/>
+            <state_interface name="angular_velocity.x"/>
+            <state_interface name="angular_velocity.y"/>
+            <state_interface name="angular_velocity.z"/>
+            <state_interface name="linear_acceleration.x"/>
+            <state_interface name="linear_acceleration.y"/>
+            <state_interface name="linear_acceleration.z"/>
+        </sensor>
     </ros2_control>
     <gazebo>
         <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
             <parameters>$(find my_robot_bringup)/config/cubic_doggo_controllers.yaml</parameters>
         </plugin>
-    </gazebo>
-
-    <!--ros2_control name="imu_bno055_sensor" type="system">
-        <hardware>
-            <plugin>mock_components/GenericSystem</plugin>
-        </hardware>
-        <sensor name="imu_bno055">
-            <state_interface name="linear_acceleration.x"/>
-            <state_interface name="linear_acceleration.y"/>
-            <state_interface name="linear_acceleration.z"/>
-            <state_interface name="angular_velocity.x"/>
-            <state_interface name="angular_velocity.y"/>
-            <state_interface name="angular_velocity.z"/>
-            <state_interface name="orientation.w"/>
-            <state_interface name="orientation.x"/>
-            <state_interface name="orientation.y"/>
-            <state_interface name="orientation.z"/>
-            <state_interface name="euler.x"/>
-            <state_interface name="euler.y"/>
-            <state_interface name="euler.z"/>
-        </sensor>
-    </ros2_control>
-    <gazebo>
         <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu">
         </plugin>
-    </gazebo-->
+    </gazebo>
 </robot>
 
 
