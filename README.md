@@ -2,6 +2,8 @@
 
 Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalCowww/CubicDoggo_06R">Cubic Doggo 06R High Mobility</a>. The goal is to integrate a simulation (Gazebo) and reinforcement learning (PyBullet) to control walking gait. 
 
+## Moment of inertia from FreeCAD
+
 ## Gazebo
 
 Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as camera location. Then run:
@@ -10,8 +12,13 @@ Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as ca
     colcon build
     source install/setup.bash
     ros2 launch my_robot_bringup cubic_doggo.gazebo.with_lifecycle.launch.py
+    ros2 run plotjuggler plotjuggler      # on another terminal
 
 ## PyBullet
+
+## References:
+
+- CFD Intech, FreeCAD Tutorial | Exercise 6: How to Calculate Moment of Inertia of Model and Paste to Spreadsheet (<a href="https://www.youtube.com/watch?v=h6S0lKXxD3s">YouTube</a>) 
 
 ## Acknowledgements
 
