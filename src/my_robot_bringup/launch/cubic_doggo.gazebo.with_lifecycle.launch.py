@@ -18,13 +18,14 @@ def generate_launch_description():
  
     urdf_path          = os.path.join(robot_description_path,   'urdf',   'cubic_doggo.gazebo.xacro')
     gazebo_config_path = os.path.join(robot_bringup_path,       'config', 'gazebo_bridge.yaml')
+    world_file_path    = os.path.join(pkg_share_path,           'world',  'slope.sdf')
     robot_controllers  = os.path.join(robot_bringup_path,       'config', 'cubic_doggo_controllers.yaml')
     moveit_config_path = os.path.join(robot_moveit_config_path, 'launch', 'move_group.launch.py')
     rviz_config_path   = os.path.join(robot_description_path,   'rviz',   'cubic_doggo.urdf_config.rviz')
 
     set_gz_resource_path = SetEnvironmentVariable(
         name='GZ_SIM_RESOURCE_PATH', 
-        value=os.path.join(pkg_share_path, '..'),
+        value=[os.path.join(pkg_share_path, '..'), ':', os.path.join(pkg_share_path, 'world')],
     )
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -34,7 +35,8 @@ def generate_launch_description():
                 "gz_sim.launch.py"
             ),
         ),
-        launch_arguments=[("gz_args", [" -r -v 0 empty.sdf"]),],
+        #launch_arguments=[("gz_args", [" -r -v 0 empty.sdf"]),],
+        launch_arguments=[("gz_args", [" -r -v 4 ", world_file_path]),],
     )
     gz_spawn_entity = Node(
         package="ros_gz_sim",

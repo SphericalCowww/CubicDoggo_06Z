@@ -284,18 +284,18 @@
     <link name="calfSphere_${prefix}">
         <visual>
             <geometry>
-                <sphere radius="0.013"/>
+                <sphere radius="0.008"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <material name="white"/>
         </visual>
         <collision>
             <geometry>
-                <sphere radius="0.011"/>
+                <sphere radius="0.008"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
         </collision>
-        <xacro:sphere_inertia m="0.0080" r="0.011" o_xyz="0 0 0" o_rpy="0 0 0"/>
+        <xacro:sphere_inertia m="0.004" r="0.008" o_xyz="0 0 0" o_rpy="0 0 0"/>
     </link>
     <joint name="calfFeet_calfSphere_${prefix}" type="fixed">
         <parent link="calfFeet_${prefix}"/>
