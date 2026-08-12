@@ -15,10 +15,13 @@ find_package(std_srvs REQUIRED)
 find_package(my_robot_interface REQUIRED)
 
 ###########################################################################
+add_executable(cubic_doggo_teleop_key src/cubic_doggo_teleop_key.cpp)
+ament_target_dependencies(cubic_doggo_teleop_key rclcpp example_interfaces std_srvs my_robot_interface)
+
 add_executable(cubic_doggo_joy_control src/cubic_doggo_joy_control.cpp)
 ament_target_dependencies(cubic_doggo_joy_control rclcpp example_interfaces sensor_msgs std_srvs my_robot_interface)
 
-install(TARGETS cubic_doggo_joy_control
+install(TARGETS cubic_doggo_teleop_key cubic_doggo_joy_control
     DESTINATION lib/${PROJECT_NAME}
 )
 

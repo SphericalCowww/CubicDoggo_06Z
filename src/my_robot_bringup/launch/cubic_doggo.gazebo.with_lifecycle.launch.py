@@ -134,6 +134,12 @@ def generate_launch_description():
         executable="cubic_doggo_joy_control",
         remappings=[("joy", "/joy")]
     )
+    teleop_key_node = Node(
+        package="my_robot_controller", 
+        executable="cubic_doggo_teleop_key",
+        output="screen",
+        prefix="xterm -e", 
+    )
 
     imu_broadcaster_spawner = Node(
         package="controller_manager",
@@ -155,6 +161,7 @@ def generate_launch_description():
         #rviz_node,
         joy_driver_node,
         joy_controller_node,
+        teleop_key_node, 
         imu_broadcaster_spawner,    
     ]
     return LaunchDescription(launch_entities)

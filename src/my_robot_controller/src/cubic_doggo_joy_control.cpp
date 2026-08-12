@@ -1,10 +1,11 @@
 #include <memory>
 #include <cmath>
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/joy.hpp"
 #include "example_interfaces/msg/string.hpp"
-#include "my_robot_interface/msg/cubic_doggo_leg_feet_target.hpp"
 #include "std_srvs/srv/set_bool.hpp"
+#include "my_robot_interface/msg/cubic_doggo_leg_feet_target.hpp"
 using custom_feet_array = my_robot_interface::msg::CubicDoggoLegFeetTarget;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CubicDoggoJoyControl : public rclcpp::Node {
@@ -61,7 +62,6 @@ private:
             if (msg->axes[6] < -0.5 && prev_axes_[6] >= -0.5) {
                 call_imu_(false);
             }
-            
            
             double deadzone = 0.05; 
             auto feet_msg = custom_feet_array();
