@@ -6,6 +6,10 @@ Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalC
 
 ## Gazebo
 
+For keyboard control:
+
+    sudo apt install xterm
+
 Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as camera location. Then run:
 
     cd CubicDoggo_06Z
