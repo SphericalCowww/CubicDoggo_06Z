@@ -10,6 +10,11 @@ For keyboard control:
 
     sudo apt install xterm
 
+Adjust the PID direction:
+
+    roll, negative when tilting backward
+    pitch, negative when tilting leftward
+
 Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as camera location. Then run:
 
     cd CubicDoggo_06Z
