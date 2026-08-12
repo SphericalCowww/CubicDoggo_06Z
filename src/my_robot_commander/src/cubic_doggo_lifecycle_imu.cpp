@@ -184,9 +184,10 @@ public:
             tf2::Matrix3x3 matrixObj(qObj);
             double roll, pitch, yaw;
             matrixObj.getRPY(roll, pitch, yaw);
-            double raw_pitch = pitch*(180.0/M_PI);
-            double raw_roll  = roll *(180.0/M_PI);
-            double alpha = 0.8;                    // [0.0, 1.0], lower the smoother but with lags
+            double raw_pitch = pitch*(180.0/M_PI);  // use if negative when tilting leftward
+            //double raw_roll  = roll *(180.0/M_PI);  // use if negative when tilting forward
+            double raw_roll  =-roll *(180.0/M_PI);  // use if negative when tilting backward
+            double alpha = 0.8;                     // [0.0, 1.0], lower the smoother but with lags
             double current_pitch = alpha*raw_pitch + (1.0 - alpha)*current_pitch_.load();
             double current_roll  = alpha*raw_roll  + (1.0 - alpha)*current_roll_.load();
             current_pitch_.store(current_pitch, std::memory_order_relaxed);
@@ -483,7 +484,7 @@ private:
         response->message = is_imu_ ? "imu started" : "imu stopped";
     }
     void controlLoop_() {
-        //rclcpp::get_logger("").set_level(rclcpp::Logger::Level::Warn);        // for silencing output
+        rclcpp::get_logger("").set_level(rclcpp::Logger::Level::Warn);        // for silencing output
 
         // https://docs.ros.org/en/jazzy/p/control_toolbox/generated/structcontrol__toolbox_1_1AntiWindupStrategy.html
         control_toolbox::AntiWindupStrategy aw_strat;
