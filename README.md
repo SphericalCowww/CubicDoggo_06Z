@@ -4,7 +4,7 @@ Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalC
 
 ## Moment of inertia from FreeCAD
     # View > Panels > Python console
-    obj = App.ActiveDocument.getObject("YourObjectName")
+    obj = App.ActiveDocument.getObject("Body")
     shape = obj.Shape
     print(shape.Mass)
     print(shape.CenterOfMass)
