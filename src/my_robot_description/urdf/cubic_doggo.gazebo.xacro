@@ -7,7 +7,7 @@
     <link name="base_link">
         <visual>
             <geometry>
-                <mesh filename="package://my_robot_description/mesh/CADv2/baseTorso.stl" scale="0.001 0.001 0.001"/>
+                <mesh filename="package://my_robot_description/mesh/CADv3/baseTorso.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <material name="white"/>
@@ -24,7 +24,7 @@
     <link name="base_plate_B">
         <visual>
             <geometry>
-                <mesh filename="package://my_robot_description/mesh/CADv2/basePlate.stl" scale="0.001 0.001 0.001"/>
+                <mesh filename="package://my_robot_description/mesh/CADv3/basePlate.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <material name="white"/>
@@ -46,7 +46,7 @@
     <link name="base_plate_F">
         <visual>
             <geometry>
-                <mesh filename="package://my_robot_description/mesh/CADv2/basePlate.stl" scale="0.001 0.001 0.001"/>
+                <mesh filename="package://my_robot_description/mesh/CADv3/basePlate.stl" scale="0.001 0.001 0.001"/>
             </geometry>
             <origin xyz="0 0 0" rpy="0 0 0"/>
             <material name="white"/>
@@ -64,6 +64,34 @@
         <child  link="base_plate_F"/>
         <origin xyz="0 0.091 0.004" rpy="0 0 ${urdf_pi}"/>
     </joint>    
+
+    <link name="batteryHolder">
+        <visual>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/CADv3/batteryHolder.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="white"/>
+        </visual>
+        <collision>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/collisionV3/batteryHolder.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </collision>
+        <inertial>
+            <origin xyz="0.0 -0.0018 0.0525" rpy="0 0 0"/>
+            <mass value="0.460"/>
+            <inertia ixx="0.0008346" ixy="0" ixz="0"
+                 iyy="0.0007990" iyz="0"
+                 izz="0.0001736"/>
+        </inertial>
+    </link>
+    <joint name="torso_batteryHolder" type="fixed">
+        <parent link="base_link"/>
+        <child  link="batteryHolder"/>
+        <origin xyz="0 0 0" rpy="${urdf_pi/2} 0 0"/>
+    </joint>
 
     <link name="imu_board">
         <visual>
@@ -93,6 +121,17 @@
     <xacro:doggo_legB prefix='BR'/>   
 
 <!-- ================================================================================================================================== -->
+    <gazebo reference="batteryHolder">
+        <collision>
+            <surface>
+                <contact>
+                    <ode>
+                        <min_depth>0.001</min_depth>   <!-- enforcing convexity -->
+                    </ode>
+                </contact>
+            </surface>
+        </collision>
+    </gazebo>
     <gazebo reference="imu_board">
         <sensor name="imu_bno055" type="imu">
             <always_on>1</always_on>
