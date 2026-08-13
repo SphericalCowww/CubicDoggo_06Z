@@ -185,8 +185,8 @@ public:
             double roll, pitch, yaw;
             matrixObj.getRPY(roll, pitch, yaw);
             double raw_pitch = pitch*(180.0/M_PI);  // use if negative when tilting leftward
-            //double raw_roll  = roll *(180.0/M_PI);  // use if negative when tilting forward
-            double raw_roll  =-roll *(180.0/M_PI);  // use if negative when tilting backward
+            double raw_roll  = roll *(180.0/M_PI);  // use if negative when tilting forward
+            //double raw_roll  =-roll *(180.0/M_PI);  // use if negative when tilting backward
             double alpha = 0.8;                     // [0.0, 1.0], lower the smoother but with lags
             double current_pitch = alpha*raw_pitch + (1.0 - alpha)*current_pitch_.load();
             double current_roll  = alpha*raw_roll  + (1.0 - alpha)*current_roll_.load();
@@ -508,7 +508,7 @@ private:
         double waypoint_dt_stand = 1.0/double(update_rate_);    // standing require faster trajectory
         double IK_bufferTime     = 0.10;                        // time at end of cycle buffer for IK calc
         double swing_fraction    = 0.32;                        // creep < 0.25 < stable trot < 0.5 < trot
-        double x_stride_max = 0.02, y_stride_max = 0.03;
+        double x_stride_max = 0.02, y_stride_max = 0.04;
         double lift0 = 0.04, x_shift0 = 0.0, y_shift0 = -0.007;
         double lift1 = 0.02, x_shift1 = 0.0, y_shift1 = -0.007;
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////
