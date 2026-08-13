@@ -3,6 +3,12 @@
 Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalCowww/CubicDoggo_06R">Cubic Doggo 06R High Mobility</a>. The goal is to integrate a simulation (Gazebo) and reinforcement learning (PyBullet) to control walking gait. 
 
 ## Moment of inertia from FreeCAD
+    # View > Panels > Python console
+    obj = App.ActiveDocument.getObject("YourObjectName")
+    shape = obj.Shape
+    print(shape.Mass)
+    print(shape.CenterOfMass)
+    print(shape.MatrixOfInertia)
 
 ## Gazebo
 
