@@ -46,4 +46,4 @@ Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as ca
 
 - Some utility programs are adapted from the ROBOTIS DYNAMIXEL [Workbench examples](https://github.com/ROBOTIS-GIT/dynamixel-workbench/tree/main/dynamixel_workbench_toolbox/examples/sr) and [U2D2 Controller CAD](https://en.robotis.com/service/downloadpage.php?ca_id=70f0#). These files remain licensed under the Apache License 2.0. Modifications are documented in the source files.
 - Raspberry Pi 5 CAD model sourced from [Printables](https://www.printables.com/model/607854-raspberry-pi-5).
-- RPLIDAR A1M8 CAD model provided by [SLAMTEC](https://www.slamtec.com/en/support#rplidar-a-series), provided by RoboPeak Team and Shanghai Slamtec Co., Ltd., licensed under the terms included with the SDK file.
+- RPLIDAR A1M8 CAD model provided by [SLAMTEC](https://www.slamtec.com/en/support#rplidar-a-series).
