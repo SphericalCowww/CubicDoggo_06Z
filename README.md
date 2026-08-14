@@ -10,6 +10,10 @@ Cubic Doggo 06Z Neucommu is upgraded from <a href="https://github.com/SphericalC
     print(shape.CenterOfMass)
     print(shape.MatrixOfInertia)
 
+Conversion to URDF value:
+
+    I_urdf = I_freeCAD * M_physical / M_freeCAD * 1.0E-6
+
 ## Gazebo
 
 For keyboard control:
