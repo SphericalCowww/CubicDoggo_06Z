@@ -4,29 +4,33 @@ Cubic Doggo 06Z Neucommu is upgraded from [Cubic Doggo 06R High Mobility](https:
 
 ## Moment of inertia from FreeCAD
 
-    # View > Panels > Python console
+To get the moment of inertia for a FreeCAD piece, run,
+
+    # open FreeCAD > View > Panels > Python console
     obj = App.ActiveDocument.getObject("Body")
     shape = obj.Shape
     print(shape.Mass)
     print(shape.CenterOfMass)
     print(shape.MatrixOfInertia)
 
-Conversion to URDF value:
+Then use this formula to convert to URDF value for each matrix element (I: moment of inertia, M: mass):
 
-    I_urdf = I_freeCAD * M_physical / M_freeCAD * 1.0E-6
+    I_urdf = I_freeCAD*(M_physical/M_freeCAD)*1.0E-6
 
+The convex mesh can also be included for collision geometry; check out ``batteryHolder`` under ``CubicDoggo_06Z/src/my_robot_description/urdf/cubic_doggo.gazebo.xacro``.
+
+Don't forget to check the basic geometry under rViz first:
+
+    cd CubicDoggo_06Z
+    colcon build
+    source install/setup.bash
     ros2 launch my_robot_description cubic_doggo.rviz.launch.xacro.py
 
 ## Gazebo
 
-For keyboard control:
+To have a window for keyboard control:
 
     sudo apt install xterm
-
-Adjust the PID direction:
-
-    roll, negative when tilting backward
-    pitch, negative when tilting leftward
 
 Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as camera location. Then run:
 
@@ -35,6 +39,8 @@ Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as ca
     source install/setup.bash
     ros2 launch my_robot_bringup cubic_doggo.gazebo.with_lifecycle.launch.py
     ros2 run plotjuggler plotjuggler      # on another terminal
+
+<img src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_Gazebo.png" height="500">
 
 ## PyBullet
 
