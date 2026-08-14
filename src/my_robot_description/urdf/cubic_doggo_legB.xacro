@@ -82,8 +82,8 @@
         <child  link="servo1_padding_${prefix}"/>
         <origin xyz="0 ${-servo_z/2-0.002} ${0.01+0.0025/2}" rpy="0 0 0"/>
         <axis xyz="0 -1 0"/>
-        <limit effort="1000.0" velocity="50.0" lower="${urdf_pi - urdf_pi/3}" upper="${urdf_pi + urdf_pi/3}"/>
-        <dynamics friction="0.05" damping="0.1"/>
+        <limit effort="1.4" velocity="10.0" lower="${urdf_pi - urdf_pi/3}" upper="${urdf_pi + urdf_pi/3}"/>
+        <dynamics friction="0.01" damping="0.1"/>
     </joint>
 
     <!-- ============================================================================================================================== -->
@@ -153,9 +153,9 @@
         <child  link="servo2_padding_${prefix}"/>
         <origin xyz="${rflc*(servo_z/2+0.002)} -0.01125 0" rpy="0 0 0"/>
         <axis xyz="${rflc} 0 0"/>
-        <limit effort="1000.0" velocity="50.0" lower="${urdf_pi - 2*urdf_pi/6 + rflc*urdf_pi/6}" 
-                                               upper="${urdf_pi + 2*urdf_pi/6 + rflc*urdf_pi/6}"/>
-        <dynamics friction="0.05" damping="0.1"/>
+        <limit effort="1.4" velocity="10.0" lower="${urdf_pi - 2*urdf_pi/6 + rflc*urdf_pi/6}" 
+                                            upper="${urdf_pi + 2*urdf_pi/6 + rflc*urdf_pi/6}"/>
+        <dynamics friction="0.01" damping="0.1"/>
     </joint>
 
     <!-- ============================================================================================================================== -->
@@ -250,8 +250,8 @@
         <child  link="calfFeet_${prefix}"/>
         <origin xyz="${rflc*(-servo_z/2-0.002-0.0025)} ${-0.086+0.004} 0" rpy="${urdf_pi} 0 0"/>
         <axis xyz="${-rflc} 0 0"/>
-        <limit effort="1000.0" velocity="50.0" lower="${5*urdf_pi/8}" upper="${11*urdf_pi/8}"/>
-        <dynamics friction="0.0128" damping="0.1"/>
+        <limit effort="1.4" velocity="10.0" lower="${5*urdf_pi/8}" upper="${11*urdf_pi/8}"/>
+        <dynamics friction="0.01" damping="0.1"/>
     </joint>
 
     <link name="calfJoint_${prefix}">
@@ -277,8 +277,8 @@
         <origin xyz="${rflc*(-servo_z/2-0.002-0.0025)} ${-0.01-0.0025/2} 0" rpy="0 0 0"/>
         <axis xyz="${-rflc} 0 0"/>
         <mimic joint="servo3_calfFeet_${prefix}" multiplier="1.0" offset="0.0"/>
-        <limit effort="1000.0" velocity="50.0" lower="${5*urdf_pi/8}" upper="${11*urdf_pi/8}"/>
-        <dynamics friction="0.0212" damping="0.1"/>
+        <limit effort="1.4" velocity="10.0" lower="${5*urdf_pi/8}" upper="${11*urdf_pi/8}"/>
+        <dynamics friction="0.01" damping="0.1"/>
     </joint>
 
     <link name="calfSphere_${prefix}">

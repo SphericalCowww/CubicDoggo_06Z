@@ -90,7 +90,139 @@
     <joint name="torso_batteryHolder" type="fixed">
         <parent link="base_link"/>
         <child  link="batteryHolder"/>
-        <origin xyz="0 0 0" rpy="${urdf_pi/2} 0 0"/>
+        <origin xyz="0 0.089 0.03" rpy="${-urdf_pi/2} 0 ${urdf_pi}"/>
+    </joint>
+
+    <link name="U2D2powerHub_front">
+        <visual>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/external/powerHubU2D2.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="${-urdf_pi/2} 0 ${urdf_pi}"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.048 0.056 0.004"/>
+            </geometry>
+            <origin xyz="0.0005 0 0" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.026" x="0.048" y="0.056" z="0.004" o_xyz="0.0005 0 0" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_U2D2powerHub_front" type="fixed">
+        <parent link="base_link"/>
+        <child  link="U2D2powerHub_front"/>
+        <origin xyz="0 0.118 -0.002" rpy="0 0 0"/>
+    </joint>
+
+    <link name="U2D2powerHub_back">
+        <visual>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/external/powerHubU2D2.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="${-urdf_pi/2} 0 0"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.048 0.056 0.004"/>
+            </geometry>
+            <origin xyz="0.0005 0 0" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.016" x="0.048" y="0.056" z="0.004" o_xyz="0.0005 0 0" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_U2D2powerHub_back" type="fixed">
+        <parent link="base_link"/>
+        <child  link="U2D2powerHub_back"/>
+        <origin xyz="0 -0.094 -0.002" rpy="0 0 0"/>
+    </joint>
+
+    <link name="DCDCconvertor">
+        <visual>
+            <geometry>
+                <box size="0.063 0.027 0.004"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.063 0.027 0.004"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.02" x="0.063" y="0.027" z="0.004" o_xyz="0 0 0" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_DCDCconvertor" type="fixed">
+        <parent link="base_link"/>
+        <child  link="DCDCconvertor"/>
+        <origin xyz="0 0.018 -0.004" rpy="0 0 0"/>
+    </joint>
+
+    <link name="raspberryPi5">
+        <visual>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/external/raspberryPi5.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="${urdf_pi} 0 ${urdf_pi/2}"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.056 0.085 0.008"/>
+            </geometry>
+            <origin xyz="0 0 -0.004" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.062" x="0.056" y="0.85" z="0.008" o_xyz="0 0 -0.004" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_raspberryPi5" type="fixed">
+        <parent link="base_link"/>
+        <child  link="raspberryPi5"/>
+        <origin xyz="0 -0.018 -0.018" rpy="0 0 0"/>
+    </joint>
+
+    <link name="lidarHolder">
+        <visual>
+            <geometry>
+                <mesh filename="package://my_robot_description/mesh/CADv3/lidarHolder.stl" scale="0.001 0.001 0.001"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="${urdf_pi} 0 ${urdf_pi}"/>
+            <material name="grey"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.064 0.082 0.034"/>
+            </geometry>
+            <origin xyz="0 -0.009 0.013" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.01" x="0.064" y="0.082" z="0.034" o_xyz="0 -0.009 0.013" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_lidarHolder" type="fixed">
+        <parent link="base_link"/>
+        <child  link="lidarHolder"/>
+        <origin xyz="0 0.136 -0.026" rpy="0 0 0"/>
+    </joint>
+
+    <link name="lidar_RPLIDAR_A1">
+        <visual>
+            <geometry>
+                <cylinder radius="0.035" length="0.024"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="black"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.07 0.095 0.05"/>
+            </geometry>
+            <origin xyz="0 -0.012 0" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.16" x="0.07" y="0.095" z="0.05" o_xyz="0 -0.012 0" o_rpy="0 0 0"/>
+    </link> 
+    <joint name="lidarHolder_lidar_RPLIDAR_A1" type="fixed">
+        <parent link="lidarHolder"/>
+        <child  link="lidar_RPLIDAR_A1"/>
+        <origin xyz="0 0 -0.025" rpy="0 0 0"/>
     </joint>
 
     <link name="imu_board">
@@ -118,8 +250,24 @@
     <xacro:doggo_legF prefix='FL'/>
     <xacro:doggo_legF prefix='FR'/>
     <xacro:doggo_legB prefix='BL'/>
-    <xacro:doggo_legB prefix='BR'/>   
+    <xacro:doggo_legB prefix='BR'/> 
 
+    <xacro:macro name="foot_friction" params="prefix">
+        <gazebo reference="calfFeet_${prefix}">
+            <mu1>0.5</mu1>              <!-- Static Friction -->
+            <mu2>0.5</mu2>              <!-- Dynamic Friction -->
+            <kp>1000000.0</kp>          <!-- Contact Stiffness -->
+            <kd>1.0</kd>                <!-- Damping -->
+            <minDepth>0.001</minDepth>  <!-- Helps contact stability -->
+            <maxVel>0.1</maxVel>        <!-- Prevents "launching" on contact -->
+            <fdir1>1 0 0</fdir1>        <!-- Direction of mu1 -->
+        </gazebo>
+    </xacro:macro>
+
+    <xacro:foot_friction prefix="FL"/>
+    <xacro:foot_friction prefix="FR"/>
+    <xacro:foot_friction prefix="BL"/>
+    <xacro:foot_friction prefix="BR"/>
 <!-- ================================================================================================================================== -->
     <gazebo reference="batteryHolder">
         <collision>
