@@ -1,31 +1,27 @@
 <?xml version="1.0" ?>
 <sdf version="1.9">
-  <world name="slope_test">
-
-    <!-- Global Scene Settings -->
-    <scene>
-      <ambient>0.4 0.4 0.4 1</ambient>
-      <background>0.7 0.7 0.7 1</background>
-      <shadows>true</shadows>
-    </scene>
-
-    <!-- Physics -->
+  <world name="summer_field">
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>1000</real_time_update_rate>
     </physics>
 
-    <!-- Lighting -->
+    <!-- sky -->
+    <scene>
+      <ambient>0.9 0.9 0.9 1</ambient>
+      <background>0.7 0.9 1.0 1</background>
+      <shadows>true</shadows>
+    </scene>
     <light name="sun" type="directional">
       <cast_shadows>true</cast_shadows>
       <pose>0 0 10 0 0 0</pose>
-      <diffuse>0.8 0.8 0.8 1</diffuse>
-      <specular>0.2 0.2 0.2 1</specular>
-      <direction>-0.5 0.5 -1</direction>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>0.5 0.5 0.5 1</specular>
+      <direction>1.5 1.0 -0.5</direction>
+      <intensity>1.5</intensity>
     </light>
 
-    <!-- Flat ground -->
     <model name="ground">
       <static>true</static>
       <link name="link">
@@ -46,15 +42,23 @@
             </plane>
           </geometry>
           <material>
-            <ambient>0.8 0.8 0.8 1</ambient>
-            <diffuse>0.8 0.8 0.8 1</diffuse>
-            <specular>0.8 0.8 0.8 1</specular>
+            <ambient>0.48 0.98 0.0 1</ambient>
+            <diffuse>0.48 0.98 0.0 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+            <pbr>
+              <metal>
+                <albedo_map>grass.png</albedo_map>
+              </metal>
+            </pbr>
+            <plugin name="gz::sim::systems::TextureRepeat" filename="gz-sim-texture-repeat-system">
+              <u_num>20</u_num>
+              <v_num>20</v_num>
+            </plugin>
           </material>
         </visual>
       </link>
     </model>
 
-    <!-- Inclined ramp -->
     <model name="slope">
       <static>true</static>
       <pose>0.5 0 0.0 0 -0.15 0</pose>
@@ -74,9 +78,9 @@
             </box>
           </geometry>
           <material>
-            <ambient>0.2 0.5 0.2 1</ambient>
-            <diffuse>0.2 0.5 0.2 1</diffuse>
-            <specular>0.1 0.1 0.1 1</specular>
+            <ambient>0.3 0.3 0.3 1</ambient> 
+            <diffuse>0.4 0.4 0.4 1</diffuse> 
+            <specular>0 0 0 1</specular>
           </material>
         </visual>
       </link>
