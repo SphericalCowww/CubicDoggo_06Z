@@ -42,6 +42,8 @@ Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as ca
 
 <img src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_Gazebo.png" height="500">
 
+In the figure, the robot walks up the ramp and turns on the IMU. The IMU is zeroing the pitch and roll shown on the top right plotjuggler. The bottom is the xterm controlling window, showing the commands issued to the robot. Bottom left is the log from the launch.
+
 ## PyBullet
 
 ## References:
