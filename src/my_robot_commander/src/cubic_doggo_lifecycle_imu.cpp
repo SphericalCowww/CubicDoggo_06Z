@@ -180,6 +180,11 @@ public:
 
         imu_subscriber_ = create_subscription<sensor_msgs::msg::Imu>(
             "/imu_broadcaster/imu", 10, [this](const sensor_msgs::msg::Imu::SharedPtr msg) {
+
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(20)); // WARNING: deliberate delay for simulation!!!
+
+
             tf2::Quaternion qObj(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w);
             tf2::Matrix3x3 matrixObj(qObj);
             double roll, pitch, yaw;
