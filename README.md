@@ -53,16 +53,20 @@ In the figure, the robot walks up the ramp, stands, turns on the IMU, walks with
 
 ## PyBullet
 
-  cd CubicDoggo_06Z/
-  python3 -m venv env_06Z
-  source env_06Z/bin/activate
-  pip install --upgrade pip
-  pip install "numpy<2"
-  pip install pyyaml typeguard
-  pip install pybullet 
-  pip install pin                      # for pinocchio
-  pip install torch gymnasium stable-baselines3
-  python3 -c "import torch; import pinocchio; import pybullet; import stable_baselines3; print('Installation Successful)"
+    cd CubicDoggo_06Z/
+    cd ..                                      # do NOT make the CubicDoggo_06Z_env/ inside CubicDoggo_06Z/, it will mess up colcon build
+    python3 -m venv CubicDoggo_06Z_env/
+    source CubicDoggo_06Z_env/bin/activate
+    pip install --upgrade pip
+    pip install "numpy<2"
+    pip install setuptools jinja2
+    pip install pyyaml typeguard
+    pip install pybullet 
+    pip install pin                      # for pinocchio
+    pip install torch gymnasium stable-baselines3
+    python3 -c "import torch; import pinocchio; import pybullet; import stable_baselines3; print('Installation Successful')"
+    cd CubicDoggo_06Z/
+    colcon build
 
 ## References:
 
