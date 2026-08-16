@@ -47,7 +47,7 @@ In the figure, the robot walks up the ramp, stands, turns on the IMU, walks with
   * top-left: Gazebo graphics
   * top-right: plotjuggler
     * left: all 12 servo positions, velocities, and loads set to 1.5N limit
-    * right: IMU values (PID control to make roll (till left-sideways) and pitch (tilt backward) to 0) and their velocities
+    * right: IMU values (PID control to make roll (tilt left-sideways) and pitch (tilt backward) to 0) and their velocities
   * bottom-left: launch terminal outputs
   * bottom-center: xterm control command window
 
