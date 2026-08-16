@@ -58,10 +58,8 @@ Adding the following line of 20 ms delay in IMU does cause oscillatory behavior 
     vim CubicDoggo_06Z/src/my_robot_commander/src/cubic_doggo_lifecycle_imu.cpp 
     # std::this_thread::sleep_for(std::chrono::milliseconds(20)); // WARNING: deliberate delay for simulation!!!
 
-<div align="center">
-  <video src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_Gazebo.webm" controls="controls" muted="muted" loop="loop" style="max-width: 100%;">
-  </video>
-</div>
+<img src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_Gazebo.webm" height="220">
+
 
 ## PyBullet
 
