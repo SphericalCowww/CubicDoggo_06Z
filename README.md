@@ -2,6 +2,8 @@
 
 Cubic Doggo 06Z Neucommu is upgraded from [Cubic Doggo 06R High Mobility](https://github.com/SphericalCowww/CubicDoggo_06R). The goal is to integrate a simulation (Gazebo) and reinforcement learning (PyBullet) to control walking gait. 
 
+Demos: Gazebo with Plotjuggler ([Reddit](https://www.reddit.com/r/ROS/comments/1vomb40/cubic_doggo_update_on_gazebo/)), Gazebo sim vs real ([Reddit](https://www.reddit.com/r/robotics/comments/1vpu2sd/cubic_doggo_found_a_nice_spot_on_the_ramp/))
+
 ## Moment of inertia from FreeCAD
 
 To get the moment of inertia for a FreeCAD piece, run,
@@ -50,6 +52,16 @@ In the figure, the robot walks up the ramp, stands, turns on the IMU, walks with
     * right: IMU values (PID control to make roll (tilt left-sideways) and pitch (tilt backward) to 0) and their velocities
   * bottom-left: launch terminal outputs
   * bottom-center: xterm control command window
+
+Adding the following line of 20 ms delay in IMU does cause oscillatory behavior in Gazebo sometimes (turn off for real robot!):
+
+    vim CubicDoggo_06Z/src/my_robot_commander/src/cubic_doggo_lifecycle_imu.cpp 
+    # std::this_thread::sleep_for(std::chrono::milliseconds(20)); // WARNING: deliberate delay for simulation!!!
+
+<div align="center">
+  <video src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_Gazebo.webm" controls="controls" muted="muted" loop="loop" style="max-width: 100%;">
+  </video>
+</div>
 
 ## PyBullet
 
