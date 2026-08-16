@@ -223,14 +223,14 @@
             <geometry>
                 <box size="0.07 0.095 0.05"/>
             </geometry>
-            <origin xyz="0 -0.012 0" rpy="0 0 0"/>
+            <origin xyz="0 -0.012 0.012" rpy="0 0 0"/>
         </collision>
         <xacro:box_inertia m="0.16" x="0.07" y="0.095" z="0.05" o_xyz="0 -0.012 0" o_rpy="0 0 0"/>
     </link> 
     <joint name="lidarHolder_lidar_RPLIDAR_A1" type="fixed">
         <parent link="lidarHolder"/>
         <child  link="lidar_RPLIDAR_A1"/>
-        <origin xyz="0 0 -0.025" rpy="0 0 0"/>
+        <origin xyz="0 0 -0.041" rpy="0 0 0"/>
     </joint>
 <!-- ================================================================================================================================== -->
     <xacro:doggo_legF prefix='FL'/>

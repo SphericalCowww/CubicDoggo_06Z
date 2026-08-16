@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <sdf version="1.9">
-  <world name="summer_field">
+  <world name="summer_field2">
     <physics name="1ms" type="ignored">
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1</real_time_factor>
@@ -9,18 +9,39 @@
 
     <!-- sky -->
     <scene>
-      <ambient>0.9 0.9 0.9 1</ambient>
+      <ambient>0.3 0.3 0.3 1</ambient>
       <background>0.7 0.9 1.0 1</background>
-      <shadows>true</shadows>
+      <shadows>false</shadows>
+      <grid>false</grid>
     </scene>
     <light name="sun" type="directional">
-      <cast_shadows>true</cast_shadows>
-      <pose>0 0 10 0 0 0</pose>
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 -1 0 0 0</pose> 
       <diffuse>1 1 1 1</diffuse>
       <specular>0.5 0.5 0.5 1</specular>
-      <direction>1.5 1.0 -0.5</direction>
-      <intensity>1.5</intensity>
+      <direction>0 -1.0 -0.4</direction>
+      <intensity>3</intensity>
     </light>
+    <model name="sun_visual">
+      <static>true</static>
+      <cast_shadows>false</cast_shadows> 
+      <pose>30 140 50 0 0 0</pose> 
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <sphere>
+              <radius>5.0</radius>
+            </sphere>
+          </geometry>
+          <material>
+            <ambient>1 1 0 1</ambient>
+            <diffuse>1 1 0 1</diffuse>
+            <specular>0 0 0 1</specular>
+            <emissive>1 1 0.5 1</emissive> 
+          </material>
+        </visual>
+      </link>
+    </model>
 
     <model name="ground">
       <static>true</static>
@@ -44,7 +65,7 @@
           <material>
             <ambient>0.48 0.98 0.0 1</ambient>
             <diffuse>0.48 0.98 0.0 1</diffuse>
-            <specular>0.1 0.1 0.1 1</specular>
+            <specular>0 0 0 1</specular>
             <pbr>
               <metal>
                 <albedo_map>grass.png</albedo_map>
@@ -70,7 +91,6 @@
             </box>
           </geometry>
         </collision>
-
         <visual name="visual">
           <geometry>
             <box>
