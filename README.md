@@ -1,6 +1,6 @@
 # CubicDoggo 06Z: Homemade 12-DOF 4-Legged Robot Recipe with Simulation and Reinforcement Learning
 
-Cubic Doggo 06Z Neucommu is upgraded from [Cubic Doggo 06R High Mobility](https://github.com/SphericalCowww/CubicDoggo_06R). The goal is to integrate a simulation (Gazebo) and reinforcement learning (PyBullet) to control walking gait. 
+Cubic Doggo 06Z Neucommu is upgraded from [Cubic Doggo 06R High Mobility](https://github.com/SphericalCowww/CubicDoggo_06R). The goal is to integrate a simulation (Gazebo/Mujoco) and reinforcement learning (PyTorch) to control walking gait. 
 
 Demos: Gazebo with Plotjuggler ([Reddit](https://www.reddit.com/r/ROS/comments/1vomb40/cubic_doggo_update_on_gazebo/)), Gazebo sim vs real ([Reddit](https://www.reddit.com/r/robotics/comments/1vpu2sd/cubic_doggo_found_a_nice_spot_on_the_ramp/))
 
@@ -77,6 +77,17 @@ Adding the following line of 20 ms delay in IMU does cause oscillatory behavior 
     python3 -c "import torch; import pinocchio; import pybullet; import stable_baselines3; print('Installation Successful')"
     cd CubicDoggo_06Z/
     colcon build
+
+Half-way through, realize MuJoCo is the modern way for robot simulation in python with CPU.
+
+## MuJoCo
+
+    cd CubicDoggo_06Z/
+    cd ..                                      # do NOT make the CubicDoggo_06Z_env/ inside CubicDoggo_06Z/, it will mess up colcon build
+    python3 -m venv CubicDoggo_06Z_env/
+    source CubicDoggo_06Z_env/bin/activate
+    pip install --upgrade pip setuptools wheel
+    pip install mujoco torch gymnasium stable-baselines3 pin # pin for pinocchio
 
 ## References:
 
