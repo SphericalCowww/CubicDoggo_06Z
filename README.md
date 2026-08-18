@@ -88,6 +88,9 @@ Half-way through, realize MuJoCo is the modern way for robot simulation in pytho
     pip install --upgrade pip 
     pip install jinja2 pyyaml typeguard setuptools wheel
     pip install mujoco torch gymnasium stable-baselines3 pin             # pin for pinocchio
+    python3 -c "import torch; import pinocchio; import mujoco; import stable_baselines3; print('Installation Successful')"
+    cd CubicDoggo_06Z/
+    colcon build
 
 ## References:
 
