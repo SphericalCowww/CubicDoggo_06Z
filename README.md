@@ -76,21 +76,34 @@ Adding the following line of 20 ms delay in IMU does cause oscillatory behavior 
     python3 -c "import torch; import pinocchio; import pybullet; import stable_baselines3; print('Installation Successful')"
     cd CubicDoggo_06Z/
     colcon build
+    source install/setup.bash
 
-Half-way through, realize MuJoCo is the modern way for robot simulation in python with CPU.
+Halfway through, realized MuJoCo is the modern way for robot simulation in python with CPU.
 
 ## MuJoCo
 
     cd CubicDoggo_06Z/
-    cd ..                                                                # do NOT make the CubicDoggo_06Z_env/ inside CubicDoggo_06Z/, it will mess up colcon build
+    cd ..                                                                # do NOT create the CubicDoggo_06Z_env/ inside CubicDoggo_06Z/, it will mess up colcon build
     python3 -m venv CubicDoggo_06Z_env/
     source CubicDoggo_06Z_env/bin/activate
+    export PYTHONPATH=$PYTHONPATH:.../CubicDoggo_06Z_env/lib/python3.12/site-packages   # put it in .bashrc
     pip install --upgrade pip 
+    pip install catkin_pkg empy lark
     pip install jinja2 pyyaml typeguard setuptools wheel
     pip install mujoco torch gymnasium stable-baselines3 pin             # pin for pinocchio
     python3 -c "import torch; import pinocchio; import mujoco; import stable_baselines3; print('Installation Successful')"
     cd CubicDoggo_06Z/
+    rm -r install/ build/ log/
     colcon build
+    source install/setup.bash
+
+### Launch MuJoCo with ROS2
+
+    cd CubicDoggo_06Z/
+    source ../CubicDoggo_06Z_env/bin/activate
+    colcon build --cmake-clean-first
+    source install/setup.bash
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_read_urdf
 
 ## References:
 
