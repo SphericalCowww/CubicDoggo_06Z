@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'cubic_doggo_mujoco_read_urdf = my_robot_commander_py.cubic_doggo_mujoco_read_urdf:main',
         ],
     },
 )
