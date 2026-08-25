@@ -1,0 +1,28 @@
+<mujoco model="scene">
+    <visual>
+        <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1"/>
+    </visual>
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
+        <texture type="2d" name="grid" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 .15 .2" width="512" height="512"/>
+        <material name="grid_mat" texture="grid" texrepeat="5 5" reflectance="0.2"/>
+    </asset>
+    <worldbody>
+        <light pos="0 0 3" dir="0 0 -1"/>
+        <geom name="floor" type="plane" size="5 5 0.1" material="grid_mat" group="1"/>
+        <body name="robot_root" pos="0 0 0">
+            <freejoint name="root"/>
+            <include file="cubic_doggo.mujoco.urdf"/>
+        </body>
+    </worldbody>
+
+    <keyframe>
+        <key name="upside_down" qpos="0 0 0.2  0 0 1 0  3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14  3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14"/>
+    </keyframe>
+    <equality>
+        <joint joint1="servo3_calfFeet_FL" joint2="servo3_calfJoint_FL" polycoef="0 1 0 0 0"/>
+        <joint joint1="servo3_calfFeet_FR" joint2="servo3_calfJoint_FR" polycoef="0 1 0 0 0"/>
+        <joint joint1="servo3_calfFeet_BL" joint2="servo3_calfJoint_BL" polycoef="0 1 0 0 0"/>
+        <joint joint1="servo3_calfFeet_BR" joint2="servo3_calfJoint_BR" polycoef="0 1 0 0 0"/>
+    </equality>
+</mujoco>
