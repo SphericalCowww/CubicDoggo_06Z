@@ -99,11 +99,14 @@ Halfway through, realized MuJoCo is the modern way for robot simulation in pytho
 
 ### Launch MuJoCo with ROS2
 
+    cd CubicDoggo_06Z/src/my_robot_description/urdf
+    ros2 run xacro xacro cubic_doggo.gazebo.xacro > cubic_doggo.mujoco.urdf
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
-    ros2 run my_robot_commander_py cubic_doggo_mujoco_read_urdf
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_read_urdf 
+    # toggle 1 for visual, and toggle 0 for collision
 
 ## References:
 
