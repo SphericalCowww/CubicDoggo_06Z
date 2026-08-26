@@ -1,14 +1,15 @@
 from ament_index_python.packages import get_package_share_directory
+import xacro
 import os, re, tempfile
 import mujoco, mujoco.viewer
 #############################################################################################################################
 def main():
     pkg_share_path = get_package_share_directory('my_robot_description')
-    urdf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.urdf')
+    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
     mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.xml')
 
-    with open(urdf_path, 'r') as fileObj:
-        urdf_raw = fileObj.read()
+    xacro_raw = xacro.process_file(xacro_path)
+    urdf_raw  = xacro_raw.toxml()
     urdf_content = urdf_raw.replace('package://my_robot_description', pkg_share_path)
     urdf_content = urdf_content.replace('</robot>', '<mujoco><compiler discardvisual="false"/></mujoco></robot>')
     urdf_content_temp = mujoco.MjModel.from_xml_string(urdf_content)
