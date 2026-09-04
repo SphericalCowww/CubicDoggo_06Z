@@ -5,9 +5,9 @@ import mujoco, mujoco.viewer
 #############################################################################################################################
 def main():
     pkg_share_path = get_package_share_directory('my_robot_description')
-    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_leg1.urdf.xacro')
-    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_leg1.mujoco.xml')
-    usdf_file      =                                      'cubic_leg1.mujoco.urdf'
+    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
+    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.xml')
+    usdf_file      =                                      'cubic_doggo.mujoco.urdf'
 
     xacro_raw = xacro.process_file(xacro_path)
     urdf_raw  = xacro_raw.toxml()
@@ -26,6 +26,9 @@ def main():
     mjcf_content = mjcf_content.replace('</asset>', robot_assets + '\n    </asset>')
     mjcf_content = mjcf_content.replace('<include file=\"'+usdf_file+'\"/>', robot_bodies)
     mjcf_content = mjcf_content.replace('name="calfSphere_FL"', 'name="calfSphere_FL" class="foot_friction"')
+    mjcf_content = mjcf_content.replace('name="calfSphere_FR"', 'name="calfSphere_FR" class="foot_friction"')
+    mjcf_content = mjcf_content.replace('name="calfSphere_BL"', 'name="calfSphere_BL" class="foot_friction"')
+    mjcf_content = mjcf_content.replace('name="calfSphere_BR"', 'name="calfSphere_BR" class="foot_friction"')
     print(mjcf_content)
 
     model = mujoco.MjModel.from_xml_string(mjcf_content)
