@@ -108,6 +108,10 @@ Halfway through, realized MuJoCo is the modern way for robot simulation in pytho
     ros2 run my_robot_commander_py cubic_doggo_mujoco_read_urdf 
     # toggle 1 for visual, and toggle 0 for collision
 
+To launch with commander/controller:
+    
+    ros2 launch my_robot_commander_py cubic_doggo.mujoco.with_lifecycle.launch.py
+
 ## References:
 
 - CFD Intech, FreeCAD Tutorial | Exercise 6: How to Calculate Moment of Inertia of Model and Paste to Spreadsheet (<a href="https://www.youtube.com/watch?v=h6S0lKXxD3s">YouTube</a>) 
