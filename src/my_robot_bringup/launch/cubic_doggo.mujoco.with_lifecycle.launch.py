@@ -16,48 +16,15 @@ def generate_launch_description():
     robot_moveit_config_path = get_package_share_path('cubic_doggo_moveit_config')   
  
     urdf_path          = os.path.join(robot_description_path,   'urdf',   'cubic_doggo.gazebo.xacro')
-    gazebo_config_path = os.path.join(robot_bringup_path,       'config', 'gazebo_bridge.yaml')
-    world_file_path    = os.path.join(pkg_share_path,           'world',  'slope.sdf')
     moveit_config_path = os.path.join(robot_moveit_config_path, 'launch', 'move_group.launch.py')
     rviz_config_path   = os.path.join(robot_description_path,   'rviz',   'cubic_doggo.urdf_config.rviz')
 
-    set_gz_resource_path = SetEnvironmentVariable(
-        name='GZ_SIM_RESOURCE_PATH', 
-        value=[os.path.join(pkg_share_path, '..'), ':', os.path.join(pkg_share_path, 'world')],
-    )
-    gazebo = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_path("ros_gz_sim"),
-                "launch",
-                "gz_sim.launch.py"
-            ),
-        ),
-        #launch_arguments=[("gz_args", [" -r -v 0 empty.sdf"]),],
-        launch_arguments=[("gz_args", [" -r -v 4 ", world_file_path]),],
-    )
-    gz_spawn_entity = Node(
-        package="ros_gz_sim",
-        executable="create",
+    mujoco_ros2_bridge = Node(
+        package="my_robot_commander_py",
+        executable="cubic_doggo_mujoco_bridge", # Ensure this matches your setup.py entry point
         output="screen",
-        arguments=[
-            "-topic", "robot_description",
-            "-x", "0",
-            "-y", "0",
-            "-z", "0.25",       # meters
-            "-R", "3.14159",    # roll
-            "-P", "0",          # pitch
-            "-Y", "0",          # yaw
-        ]
     )
-    gz_ros2_bridge = Node(
-        package="ros_gz_bridge",
-        executable="parameter_bridge",
-        output="screen",
-        parameters=[{"config_file": gazebo_config_path}],
-    )
- 
-     
+
     robot_description = ParameterValue(
         Command([
             'xacro ', 
@@ -75,19 +42,6 @@ def generate_launch_description():
         MoveItConfigsBuilder("cubic_doggo", package_name="cubic_doggo_moveit_config")
         .robot_description(file_path=urdf_path)
         .to_moveit_configs()
-    )
-    # check src/my_robot_bringup/config/my_robot_controllers.yaml 
-    joint_state_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "joint_state_broadcaster",
-        ],
-    )
-    all_legs_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["all_legs_controller"],
     )
     moveit_launcher = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(moveit_config_path),
@@ -139,29 +93,24 @@ def generate_launch_description():
         prefix="xterm -e", 
     )
 
-    imu_broadcaster_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["imu_broadcaster"],
-    )
- 
     launch_entities = [
-        SetParameter(name='use_sim_time', value=True),
-        set_gz_resource_path,
-        gazebo,
-        gz_spawn_entity,
-        gz_ros2_bridge,
+        SetParameter(name='use_sim_time', value=False),
+        mujoco_ros2_bridge,
         robot_state_publisher_node,
-        joint_state_broadcaster_spawner,
-        all_legs_controller_spawner,
         moveit_launcher,
         lifecycle_node,
         #rviz_node,
         joy_driver_node,
         joy_controller_node,
         teleop_key_node, 
-        imu_broadcaster_spawner,    
     ]
     return LaunchDescription(launch_entities)
 
 ######################################################################################################################
+
+
+
+
+
+
+

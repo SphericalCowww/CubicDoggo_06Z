@@ -57,65 +57,65 @@
         <joint joint1="servo3_calfFeet_BR" joint2="servo3_calfJoint_BR" polycoef="0 1 0 0 0"/>
     </equality>
     <actuator>
-        <position name="servo1_channel_FL" 
+        <position name="servo1_servo1_padding_FL" 
                   joint="servo1_servo1_padding_FL" 
                   kp="100"
                   ctrlrange="2.09 4.18" 
                   forcerange="-1.4 1.4"/>
-        <position name="servo2_channel_FL" 
+        <position name="servo2_servo2_padding_FL" 
                   joint="servo2_servo2_padding_FL" 
                   kp="100" 
                   ctrlrange="2.62 4.71" 
                   forcerange="-1.4 1.4"/>
-        <position name="servo3_channel_FL" 
+        <position name="servo3_calfFeet_FL" 
                   joint="servo3_calfFeet_FL" 
                   kp="100" 
                   ctrlrange="1.96 4.32" 
                   forcerange="-1.4 1.4"/>
 
-        <position name="servo1_channel_FR" 
+        <position name="servo1_servo1_padding_FR" 
                   joint="servo1_servo1_padding_FR" 
                   kp="100"
                   ctrlrange="2.09 4.18" 
                   forcerange="-1.4 1.4"/>
-        <position name="servo2_channel_FR" 
+        <position name="servo2_servo2_padding_FR" 
                   joint="servo2_servo2_padding_FR" 
                   kp="100" 
                   ctrlrange="1.57 3.67" 
                   forcerange="-1.4 1.4"/>
-        <position name="servo3_channel_FR" 
+        <position name="servo3_calfFeet_FR" 
                   joint="servo3_calfFeet_FR" 
                   kp="100" 
                   ctrlrange="1.96 4.32" 
                   forcerange="-1.4 1.4"/>
 
-        <position name="servo1_channel_BL" 
+        <position name="servo1_servo1_padding_BL" 
                   joint="servo1_servo1_padding_BL" 
                   kp="100"
                   ctrlrange="2.09 4.18" 
                   forcerange="-1.4 1.4"/>
-        <position name="servo2_channel_BL" 
+        <position name="servo2_servo2_padding_BL" 
                   joint="servo2_servo2_padding_BL" 
                   kp="100" 
                   ctrlrange="1.57 3.67" 
                   forcerange="-1.4 1.4"/>
-        <position name="servo3_channel_BL" 
+        <position name="servo3_calfFeet_BL" 
                   joint="servo3_calfFeet_BL" 
                   kp="100" 
                   ctrlrange="1.96 4.32" 
                   forcerange="-1.4 1.4"/>
 
-        <position name="servo1_channel_BR" 
+        <position name="servo1_servo1_padding_BR" 
                   joint="servo1_servo1_padding_BR" 
                   kp="100"
                   ctrlrange="2.09 4.18" 
                   forcerange="-1.4 1.4"/>
-        <position name="servo2_channel_BR" 
+        <position name="servo2_servo2_padding_BR" 
                   joint="servo2_servo2_padding_BR" 
                   kp="100" 
                   ctrlrange="2.62 4.71" 
                   forcerange="-1.4 1.4"/>
-        <position name="servo3_channel_BR" 
+        <position name="servo3_calfFeet_BR" 
                   joint="servo3_calfFeet_BR" 
                   kp="100" 
                   ctrlrange="1.96 4.32" 
@@ -123,7 +123,7 @@
     </actuator>
     <sensor>
         <accelerometer name="accel" site="imu_site"/>
-        <gyro name="gyro" site="imu_site"/>
-        <framequat name="quat" objtype="site" objname="imu_site"/>
+        <gyro          name="gyro"  site="imu_site"/>
+        <framequat     name="quat"  objtype="site" objname="imu_site"/>
     </sensor>
 </mujoco>
