@@ -1,6 +1,6 @@
 from ament_index_python.packages import get_package_share_directory
 import xacro
-import os, re, tempfile
+import os, re, time, tempfile
 import mujoco, mujoco.viewer
 #############################################################################################################################
 def main():
@@ -25,30 +25,23 @@ def main():
         mjcf_content = fileObj.read()
     mjcf_content = mjcf_content.replace('</asset>', robot_assets + '\n    </asset>')
     mjcf_content = mjcf_content.replace('<include file=\"'+usdf_file+'\"/>', robot_bodies)
-
-    '''
-    stripped_xml = mjcf_content.split('<contact>')[0] + '</mujoco>'
-    debug_model = mujoco.MjModel.from_xml_string(stripped_xml)
-    print("mujoco body names:")
-    for bodyIdx in range(debug_model.nbody):
-        print("  "+str(bodyIdx)+": "+debug_model.body(bodyIdx).name)
-    '''
+    mjcf_content = mjcf_content.replace('name="calfSphere_FL"', 'name="calfSphere_FL" class="foot_friction"')
+    print(mjcf_content)
 
     model = mujoco.MjModel.from_xml_string(mjcf_content)
     data = mujoco.MjData(model)
 
-    '''
-    print("mujoco joint names:")
-    for jointIdx in range(model.njnt):
-        jnt_name = model.joint(jointIdx).name
-        jnt_type = model.jnt_type[jointIdx]
-        qpos_idx = model.jnt_qposadr[jointIdx]
-        print("  qpos["+str(jointIdx)+"]: "+jnt_name)
-    '''
-
     if model.nkey > 0:
         mujoco.mj_resetDataKeyframe(model, data, 0)
-    mujoco.viewer.launch(model, data)
+    with mujoco.viewer.launch_passive(model, data) as viewer:
+        viewer.opt.geomgroup[0] = 0
+        while viewer.is_running():
+            step_start = time.time()
+            mujoco.mj_step(model, data)
+            viewer.sync()
+            time_until_next_step = model.opt.timestep - (time.time() - step_start)
+            if time_until_next_step > 0:
+                time.sleep(time_until_next_step)
 #############################################################################################################################
 if __name__ == '__main__': main()
 

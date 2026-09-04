@@ -109,7 +109,7 @@
         <origin xyz="0 -0.004 0" rpy="0 0 0"/>
     </joint>
     
-    <!--link name="servo2_${prefix}">
+    <link name="servo2_${prefix}">
         <visual>
             <geometry>
                 <box size="${servo_x} ${servo_y} ${servo_z}"/>
@@ -154,12 +154,12 @@
         <origin xyz="${rflc*(servo_z/2+0.002)} -0.03525 0" rpy="0 0 0"/>
         <axis xyz="${rflc} 0 0"/>
         <limit effort="1.4" velocity="10.0" lower="${urdf_pi - 2*urdf_pi/6 - rflc*urdf_pi/6}" 
-                                               upper="${urdf_pi + 2*urdf_pi/6 - rflc*urdf_pi/6}"/>
+                                            upper="${urdf_pi + 2*urdf_pi/6 - rflc*urdf_pi/6}"/>
         <dynamics friction="0.01" damping="0.1"/>
-    </joint-->
+    </joint>
 
     <!-- ============================================================================================================================== -->
-    <!--link name="inner_thigh_${prefix}">
+    <link name="inner_thigh_${prefix}">
         <visual>
             <geometry>
                 <mesh filename="package://my_robot_description/mesh/CADv3/thighInner.stl" scale="0.001 0.001 0.001"/>
@@ -301,7 +301,7 @@
         <parent link="calfFeet_${prefix}"/>
         <child  link="calfSphere_${prefix}"/>
         <origin xyz="0 0.002 ${-0.105+0.035}" rpy="0 0 0"/>
-    </joint-->
+    </joint>
     </xacro:macro>
 </robot>
 <!-- ================================================================================================================================== -->
