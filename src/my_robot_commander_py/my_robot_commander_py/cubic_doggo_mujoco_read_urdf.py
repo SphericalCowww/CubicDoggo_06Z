@@ -1,7 +1,25 @@
 from ament_index_python.packages import get_package_share_directory
+import os, re, time, math
+import tempfile
 import xacro
-import os, re, time, tempfile
 import mujoco, mujoco.viewer
+#############################################################################################################################
+def quat2euler(w, x, y, z):
+    sinr_cosp = 2 * (w * x + y * z)
+    cosr_cosp = 1 - 2 * (x * x + y * y)
+    roll = math.atan2(sinr_cosp, cosr_cosp)
+
+    sinp = 2 * (w * y - z * x)
+    if abs(sinp) >= 1:
+        pitch = math.copysign(math.pi / 2, sinp) # use 90 degrees if out of range
+    else:
+        pitch = math.asin(sinp)
+
+    siny_cosp = 2 * (w * z + x * y)
+    cosy_cosp = 1 - 2 * (y * y + z * z)
+    yaw = math.atan2(siny_cosp, cosy_cosp)
+
+    return roll, pitch, yaw
 #############################################################################################################################
 def main():
     pkg_share_path = get_package_share_directory('my_robot_description')
@@ -40,7 +58,17 @@ def main():
         viewer.opt.geomgroup[0] = 0
         while viewer.is_running():
             step_start = time.time()
+            
             mujoco.mj_step(model, data)
+            accel_data = data.sensor('accel').data
+            gyro_data  = data.sensor('gyro').data
+            quat_data  = data.sensor('quat').data
+            roll_rad, pitch_rad, yaw_rad = quat2euler(*quat_data)
+            roll_deg  = math.degrees(roll_rad)
+            pitch_deg = math.degrees(pitch_rad)
+            yaw_deg   = math.degrees(yaw_rad)
+            print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}", end='\r')           
+ 
             viewer.sync()
             time_until_next_step = model.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:

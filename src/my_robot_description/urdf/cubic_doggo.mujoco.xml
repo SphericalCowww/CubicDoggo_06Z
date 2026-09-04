@@ -29,12 +29,25 @@
         <body name="robot_root" pos="0 0 0">
             <freejoint name="root"/>
             <include file="cubic_doggo.mujoco.urdf"/>
+            <geom name="imu_board" 
+                  type="box" 
+                  pos="0.0 0.0475 -0.002" 
+                  euler="3.14159 0 3.14159" 
+                  size="0.0135 0.0105 0.002" 
+                  rgba="0 0 1 1" 
+                  mass="0.005"
+                  group="1"/>
+            <site name="imu_site" 
+                  pos="0.0 0.0475 -0.002" 
+                  euler="3.14159 0 3.14159" 
+                  size="0.001" 
+                  rgba="1 0 0 1"/>
         </body>
     </worldbody>
     <keyframe>
         <key name="initial_condition" qpos="0 0 0.15  0 0 1 0  3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14
                                                                3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14" 
-                                                         ctrl="3.14 2.54 4.14       3.14 3.74 2.14
+                                      ctrl="                   3.14 2.54 4.14       3.14 3.74 2.14
                                                                3.14 2.54 4.14       3.14 3.74 2.14"/>
     </keyframe>
     <equality>
@@ -108,4 +121,9 @@
                   ctrlrange="1.96 4.32" 
                   forcerange="-1.4 1.4"/>
     </actuator>
+    <sensor>
+        <accelerometer name="accel" site="imu_site"/>
+        <gyro name="gyro" site="imu_site"/>
+        <framequat name="quat" objtype="site" objname="imu_site"/>
+    </sensor>
 </mujoco>
