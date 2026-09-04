@@ -635,20 +635,38 @@ private:
         all_legs_interface_->setMaxVelocityScalingFactor(velScale);
         all_legs_interface_->setMaxAccelerationScalingFactor(accScale);
     }
-    void planAndExecute_(std::size_t legIdx) {
+    void planAndExecute_exe(std::size_t legIdx) {
         success_ = (leg_interface_[legIdx]->plan(move_plan_[legIdx]) == moveit::core::MoveItErrorCode::SUCCESS);
         if (success_) {
             leg_interface_[legIdx]->execute(move_plan_[legIdx]);
+        } else {
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_exe(%zu): planning failed", legIdx);
+        }
+    }
+    void planAndExecute_exe() {
+        success_ = ((all_legs_interface_->plan(all_legs_move_plan_) == moveit::core::MoveItErrorCode::SUCCESS));
+        if (success_) {
+            all_legs_interface_->execute(all_legs_move_plan_);
+        } else {
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_exe(): planning failed");
+        }
+    }
+    void planAndExecute_(std::size_t legIdx) {
+        if (leg_interface_[legIdx]->plan(move_plan_[legIdx]) == moveit::core::MoveItErrorCode::SUCCESS) {
+            auto traj_msg = move_plan_[legIdx].trajectory.joint_trajectory;
+            traj_msg.header.stamp = this->get_clock()->now();
+            joint_publisher_->publish(traj_msg);
         } else {
             RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_(%zu): planning failed", legIdx);
         }
     }
     void planAndExecute_() {
-        success_ = ((all_legs_interface_->plan(all_legs_move_plan_) == moveit::core::MoveItErrorCode::SUCCESS));
-        if (success_) {
-            all_legs_interface_->execute(all_legs_move_plan_);
+        if (all_legs_interface_->plan(all_legs_move_plan_) == moveit::core::MoveItErrorCode::SUCCESS) {
+            auto traj_msg = all_legs_move_plan_.trajectory.joint_trajectory;
+            traj_msg.header.stamp = this->get_clock()->now();
+            joint_publisher_->publish(traj_msg);
         } else {
-            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_(): planning failed");
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_exe(): planning failed");
         }
     }
     void loadCurrentRobotState_(std::size_t legIdx) {

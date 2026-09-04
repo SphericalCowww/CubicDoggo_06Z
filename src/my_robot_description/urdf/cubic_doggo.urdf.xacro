@@ -73,6 +73,28 @@
         <child  link="base_plate_F"/>
         <origin xyz="0 0.091 0.004" rpy="0 0 ${urdf_pi}"/>
     </joint>    
+
+    <link name="imu_board">
+        <visual>
+            <geometry>
+                <box size="0.027 0.021 0.004"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <material name="blue"/>
+        </visual>
+        <collision>
+            <geometry>
+                <box size="0.027 0.021 0.004"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+        </collision>
+        <xacro:box_inertia m="0.005" x="0.027" y="0.021" z="0.004" o_xyz="0 0 0" o_rpy="0 0 0"/>
+    </link>
+    <joint name="torso_imu_board" type="fixed">
+        <parent link="base_link"/>
+        <child  link="imu_board"/>
+        <origin xyz="0.0 0.0475 -0.002" rpy="${urdf_pi} 0 ${urdf_pi}"/>
+    </joint>
 <!-- ================================================================================================================================== -->
     <xacro:doggo_legF prefix='FL'/>
     <xacro:doggo_legF prefix='FR'/>

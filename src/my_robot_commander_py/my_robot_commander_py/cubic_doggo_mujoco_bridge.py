@@ -10,7 +10,7 @@ from sensor_msgs.msg import Imu, JointState
 
 import xacro
 import mujoco, mujoco.viewer
-
+MUJOCO_ROOT_DOF = 7
 #############################################################################################################################
 class CubicDoggoMuJoCoBridge(Node):
     def __init__(self, model, data):
@@ -27,12 +27,18 @@ class CubicDoggoMuJoCoBridge(Node):
             name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, joint_idx)
             self.joint_map[name] = joint_idx
 
+        for joint_idx in range(self.model.nu):
+            joint_id = self.model.actuator_trnid[joint_idx, 0]
+            qpos_addr = self.model.jnt_qposadr[joint_id]
+            self.data.ctrl[joint_idx] = self.data.qpos[qpos_addr]
+
         self.joint_names = []
         for joint_idx in range(self.model.njnt):
             if self.model.jnt_type[joint_idx] == mujoco.mjtJoint.mjJNT_HINGE:
                 self.joint_names.append(self.model.joint(joint_idx).name)
 
     def joint_callback(self, msg):
+        target_point = msg.points[-1] 
         for joint_idx, name in enumerate(msg.joint_names):
             if name in self.joint_map:
                 actuator_id = self.joint_map[name]
@@ -41,11 +47,10 @@ class CubicDoggoMuJoCoBridge(Node):
     def publish_data(self):
         time_now = self.get_clock().now().to_msg()
 
-        mujoco_world_dof = 7
         joint_state_msg = JointState()
         joint_state_msg.header.stamp = time_now
         joint_state_msg.name = self.joint_names
-        joint_state_msg.position = self.data.qpos[mujoco_world_dof:].tolist() 
+        joint_state_msg.position = self.data.qpos[MUJOCO_ROOT_DOF:].tolist() 
         self.js_pub.publish(joint_state_msg)
 
         msg = Imu()
@@ -98,6 +103,8 @@ def main():
 
     model  = mujoco.MjModel.from_xml_string(mjcf_content)
     data   = mujoco.MjData(model)
+    if model.nkey > 0:
+        mujoco.mj_resetDataKeyframe(model, data, 0)     #prevent moveit from setting every joint 0
     bridge = CubicDoggoMuJoCoBridge(model, data)
 
     with mujoco.viewer.launch_passive(model, data) as viewer:

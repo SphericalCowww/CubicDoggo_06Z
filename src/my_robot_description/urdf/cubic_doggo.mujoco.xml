@@ -5,7 +5,8 @@
     </option>
     <default>
         <geom contype="1" conaffinity="1" friction="0.4 0.005 0.0001" solref="0.02 1" solimp="0.9 0.95 0.001"/>
-        <joint damping="0.1" armature="0.01" frictionloss="0.05" ref="0.0"/>
+        <!--joint damping="0.1" armature="0.01" frictionloss="0.05" ref="0.0"/-->
+        <joint damping="2.0" armature="0.01" frictionloss="0.05" ref="0.0"/>
         <default class="foot_friction">
             <geom friction="0.5 0.005 0.0001" 
                   solref="0.01 1" 
@@ -29,19 +30,11 @@
         <body name="robot_root" pos="0 0 0">
             <freejoint name="root"/>
             <include file="cubic_doggo.mujoco.urdf"/>
-            <geom name="imu_board" 
-                  type="box" 
-                  pos="0.0 0.0475 -0.002" 
-                  euler="3.14159 0 3.14159" 
-                  size="0.0135 0.0105 0.002" 
-                  rgba="0 0 1 1" 
-                  mass="0.005"
-                  group="1"/>
             <site name="imu_site" 
                   pos="0.0 0.0475 -0.002" 
                   euler="3.14159 0 3.14159" 
-                  size="0.001" 
-                  rgba="1 0 0 1"/>
+                  size="0.01" 
+                  rgba="0 0 1 1"/>
         </body>
     </worldbody>
     <keyframe>
@@ -49,6 +42,10 @@
                                                                3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14" 
                                       ctrl="                   3.14 2.54 4.14       3.14 3.74 2.14
                                                                3.14 2.54 4.14       3.14 3.74 2.14"/>
+        <!--key name="initial_condition" qpos="0 0 0.15  0 0 1 0  3.14 3.14 3.14 3.14  3.14 3.14 3.14 3.14
+                                                               3.14 3.14 3.14 3.14  3.14 3.14 3.14 3.14" 
+                                      ctrl="                   3.14 3.14 3.14       3.14 3.14 3.14
+                                                               3.14 3.14 3.14       3.14 3.14 3.14"/-->
     </keyframe>
     <equality>
         <joint joint1="servo3_calfFeet_FL" joint2="servo3_calfJoint_FL" polycoef="0 1 0 0 0"/>
@@ -56,6 +53,12 @@
         <joint joint1="servo3_calfFeet_BL" joint2="servo3_calfJoint_BL" polycoef="0 1 0 0 0"/>
         <joint joint1="servo3_calfFeet_BR" joint2="servo3_calfJoint_BR" polycoef="0 1 0 0 0"/>
     </equality>
+    <contact>
+        <exclude body1="calfFeet_FL" body2="calfJoint_FL"/>
+        <exclude body1="calfFeet_FR" body2="calfJoint_FR"/>
+        <exclude body1="calfFeet_BL" body2="calfJoint_BL"/>
+        <exclude body1="calfFeet_BR" body2="calfJoint_BR"/>
+    </contact>
     <actuator>
         <position name="servo1_servo1_padding_FL" 
                   joint="servo1_servo1_padding_FL" 
@@ -65,7 +68,7 @@
         <position name="servo2_servo2_padding_FL" 
                   joint="servo2_servo2_padding_FL" 
                   kp="100" 
-                  ctrlrange="2.62 4.71" 
+                  ctrlrange="1.57 3.67" 
                   forcerange="-1.4 1.4"/>
         <position name="servo3_calfFeet_FL" 
                   joint="servo3_calfFeet_FL" 
@@ -81,7 +84,7 @@
         <position name="servo2_servo2_padding_FR" 
                   joint="servo2_servo2_padding_FR" 
                   kp="100" 
-                  ctrlrange="1.57 3.67" 
+                  ctrlrange="2.62 4.71" 
                   forcerange="-1.4 1.4"/>
         <position name="servo3_calfFeet_FR" 
                   joint="servo3_calfFeet_FR" 
@@ -97,7 +100,7 @@
         <position name="servo2_servo2_padding_BL" 
                   joint="servo2_servo2_padding_BL" 
                   kp="100" 
-                  ctrlrange="1.57 3.67" 
+                  ctrlrange="2.62 4.71" 
                   forcerange="-1.4 1.4"/>
         <position name="servo3_calfFeet_BL" 
                   joint="servo3_calfFeet_BL" 
@@ -113,7 +116,7 @@
         <position name="servo2_servo2_padding_BR" 
                   joint="servo2_servo2_padding_BR" 
                   kp="100" 
-                  ctrlrange="2.62 4.71" 
+                  ctrlrange="1.57 3.67" 
                   forcerange="-1.4 1.4"/>
         <position name="servo3_calfFeet_BR" 
                   joint="servo3_calfFeet_BR" 
