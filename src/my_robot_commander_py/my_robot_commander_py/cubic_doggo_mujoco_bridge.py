@@ -22,35 +22,32 @@ class CubicDoggoMuJoCoBridge(Node):
         self.imu_pub = self.create_publisher(Imu,        '/imu_broadcaster/imu', 10)
         self.js_pub  = self.create_publisher(JointState, '/joint_states',        10)
 
-        self.joint_map = {}
-        for joint_idx in range(self.model.nu):
-            name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, joint_idx)
-            self.joint_map[name] = joint_idx
-
+        self.ctrl_joint_names = []
+        self.ctrl_joint_map   = {}
+        self.ctrl_qpos_addrs  = []
         for joint_idx in range(self.model.nu):
             joint_id = self.model.actuator_trnid[joint_idx, 0]
+            join_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, joint_idx)
             qpos_addr = self.model.jnt_qposadr[joint_id]
+            self.ctrl_joint_names.append(join_name)
+            self.ctrl_joint_map[join_name] = joint_idx
+            self.ctrl_qpos_addrs.append(qpos_addr)
             self.data.ctrl[joint_idx] = self.data.qpos[qpos_addr]
-
-        self.joint_names = []
-        for joint_idx in range(self.model.njnt):
-            if self.model.jnt_type[joint_idx] == mujoco.mjtJoint.mjJNT_HINGE:
-                self.joint_names.append(self.model.joint(joint_idx).name)
 
     def joint_callback(self, msg):
         target_point = msg.points[-1] 
         for joint_idx, name in enumerate(msg.joint_names):
-            if name in self.joint_map:
-                actuator_id = self.joint_map[name]
-                self.data.ctrl[actuator_id] = msg.points[0].positions[joint_idx]
+            if name in self.ctrl_joint_names:
+                ctrl_joint_id = self.ctrl_joint_map[name]
+                self.data.ctrl[ctrl_joint_id] = target_point.positions[joint_idx]
 
     def publish_data(self):
         time_now = self.get_clock().now().to_msg()
 
         joint_state_msg = JointState()
         joint_state_msg.header.stamp = time_now
-        joint_state_msg.name = self.joint_names
-        joint_state_msg.position = self.data.qpos[MUJOCO_ROOT_DOF:].tolist() 
+        joint_state_msg.name = self.ctrl_joint_names
+        joint_state_msg.position = [float(self.data.qpos[qpos_addr]) for qpos_addr in self.ctrl_qpos_addrs] 
         self.js_pub.publish(joint_state_msg)
 
         msg = Imu()
