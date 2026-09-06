@@ -1,5 +1,5 @@
 <mujoco model="scene_doggo">
-    <compiler angle="radian" coordinate="local" inertiafromgeom="true" autolimits="true"/>
+    <compiler angle="radian" coordinate="local" inertiafromgeom="false" autolimits="true"/>
     <option iterations="100" tolerance="1e-10" solver="Newton" gravity="0 0 -9.81">
         <flag contact="enable" energy="enable"/>
     </option>
@@ -29,6 +29,7 @@
         <geom name="floor" type="plane" size="5 5 0.1" material="grid_mat" contype="1" conaffinity="1" group="2"/>
         <body name="robot_root" pos="0 0 0">
             <freejoint name="root"/>
+            <inertial mass="0.001" pos="0 0 0" diaginertia="0.0001 0.0001 0.0001"/>     <!--to avoid 0 mass crash-->
             <include file="cubic_doggo.mujoco.urdf"/>
             <site name="imu_site" 
                   pos="0.0 0.0475 -0.002" 
@@ -60,69 +61,45 @@
         <exclude body1="calfFeet_BR" body2="calfJoint_BR"/>
     </contact>
     <actuator>
-        <position name="servo1_servo1_padding_FL" 
-                  joint="servo1_servo1_padding_FL" 
-                  kp="100"
-                  ctrlrange="2.09 4.18" 
-                  forcerange="-1.4 1.4"/>
-        <position name="servo2_servo2_padding_FL" 
-                  joint="servo2_servo2_padding_FL" 
-                  kp="100" 
-                  ctrlrange="1.57 3.67" 
-                  forcerange="-1.4 1.4"/>
-        <position name="servo3_calfFeet_FL" 
-                  joint="servo3_calfFeet_FL" 
-                  kp="100" 
-                  ctrlrange="1.96 4.32" 
-                  forcerange="-1.4 1.4"/>
+        <position name="servo1_servo1_padding_FL" joint="servo1_servo1_padding_FL" 
+                  ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
+                  kp="112" kv="5"/> 
+        <position name="servo2_servo2_padding_FL" joint="servo2_servo2_padding_FL" 
+                  ctrlrange="1.57 3.67" forcerange="-1.4 1.4"
+                  kp="112" kv="5"/>
+        <position name="servo3_calfFeet_FL" joint="servo3_calfFeet_FL" 
+                  ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
+                  kp="62" kv="10"/>
 
-        <position name="servo1_servo1_padding_FR" 
-                  joint="servo1_servo1_padding_FR" 
-                  kp="100"
-                  ctrlrange="2.09 4.18" 
-                  forcerange="-1.4 1.4"/>
-        <position name="servo2_servo2_padding_FR" 
-                  joint="servo2_servo2_padding_FR" 
-                  kp="100" 
-                  ctrlrange="2.62 4.71" 
-                  forcerange="-1.4 1.4"/>
-        <position name="servo3_calfFeet_FR" 
-                  joint="servo3_calfFeet_FR" 
-                  kp="100" 
-                  ctrlrange="1.96 4.32" 
-                  forcerange="-1.4 1.4"/>
+        <position name="servo1_servo1_padding_FR" joint="servo1_servo1_padding_FR" 
+                  ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
+                  kp="112" kv="5"/>
+        <position name="servo2_servo2_padding_FR" joint="servo2_servo2_padding_FR" 
+                  ctrlrange="2.62 4.71" forcerange="-1.4 1.4"
+                  kp="112" kv="5"/>
+        <position name="servo3_calfFeet_FR" joint="servo3_calfFeet_FR" 
+                  ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
+                  kp="62" kv="10"/>
 
-        <position name="servo1_servo1_padding_BL" 
-                  joint="servo1_servo1_padding_BL" 
-                  kp="100"
-                  ctrlrange="2.09 4.18" 
-                  forcerange="-1.4 1.4"/>
-        <position name="servo2_servo2_padding_BL" 
-                  joint="servo2_servo2_padding_BL" 
-                  kp="100" 
-                  ctrlrange="2.62 4.71" 
-                  forcerange="-1.4 1.4"/>
-        <position name="servo3_calfFeet_BL" 
-                  joint="servo3_calfFeet_BL" 
-                  kp="100" 
-                  ctrlrange="1.96 4.32" 
-                  forcerange="-1.4 1.4"/>
+        <position name="servo1_servo1_padding_BL" joint="servo1_servo1_padding_BL" 
+                  ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
+                  kp="112" kv="5"/>
+        <position name="servo2_servo2_padding_BL" joint="servo2_servo2_padding_BL" 
+                  ctrlrange="2.62 4.71" forcerange="-1.4 1.4"
+                  kp="112" kv="5"/>
+        <position name="servo3_calfFeet_BL" joint="servo3_calfFeet_BL" 
+                  ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
+                  kp="62" kv="10"/>
 
-        <position name="servo1_servo1_padding_BR" 
-                  joint="servo1_servo1_padding_BR" 
-                  kp="100"
-                  ctrlrange="2.09 4.18" 
-                  forcerange="-1.4 1.4"/>
-        <position name="servo2_servo2_padding_BR" 
-                  joint="servo2_servo2_padding_BR" 
-                  kp="100" 
-                  ctrlrange="1.57 3.67" 
-                  forcerange="-1.4 1.4"/>
-        <position name="servo3_calfFeet_BR" 
-                  joint="servo3_calfFeet_BR" 
-                  kp="100" 
-                  ctrlrange="1.96 4.32" 
-                  forcerange="-1.4 1.4"/>
+        <position name="servo1_servo1_padding_BR" joint="servo1_servo1_padding_BR" 
+                  ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
+                  kp="112" kv="5"/>
+        <position name="servo2_servo2_padding_BR" joint="servo2_servo2_padding_BR" 
+                  ctrlrange="1.57 3.67" forcerange="-1.4 1.4"
+                  kp="112" kv="5"/>
+        <position name="servo3_calfFeet_BR" joint="servo3_calfFeet_BR" 
+                  ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
+                  kp="62" kv="10"/>
     </actuator>
     <sensor>
         <accelerometer name="accel" site="imu_site"/>

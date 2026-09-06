@@ -636,6 +636,12 @@ private:
         all_legs_interface_->setMaxAccelerationScalingFactor(accScale);
     }
     void planAndExecute_(std::size_t legIdx) {
+        planAndExecute_exe(legIdx);
+    }
+    void planAndExecute_() {
+        planAndExecute_exe();
+    }
+    void planAndExecute_exe(std::size_t legIdx) {
         success_ = (leg_interface_[legIdx]->plan(move_plan_[legIdx]) == moveit::core::MoveItErrorCode::SUCCESS);
         if (success_) {
             leg_interface_[legIdx]->execute(move_plan_[legIdx]);
@@ -643,7 +649,7 @@ private:
             RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_exe(%zu): planning failed", legIdx);
         }
     }
-    void planAndExecute_() {
+    void planAndExecute_exe() {
         success_ = ((all_legs_interface_->plan(all_legs_move_plan_) == moveit::core::MoveItErrorCode::SUCCESS));
         if (success_) {
             all_legs_interface_->execute(all_legs_move_plan_);
