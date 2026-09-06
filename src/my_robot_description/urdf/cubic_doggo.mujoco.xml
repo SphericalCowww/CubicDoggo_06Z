@@ -19,18 +19,23 @@
         <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1"/>
     </visual>
     <asset>
-        <!--texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/-->
-        <texture name="grass"  type="2d" file="$MY_ROBOT_DESCRIPTION_PATH/world/grass.png" width="512" height="512"/>
-        <texture name="forest" type="skybox" file="$MY_ROBOT_DESCRIPTION_PATH/world/forest.png" width="928" height="793"/>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
+        <texture name="grass"  type="2d" file="$MY_ROBOT_DESCRIPTION_PATH/world/forest_floor.png" width="512" height="512"/>
+        <texture name="forest" type="2d" file="$MY_ROBOT_DESCRIPTION_PATH/world/forest.png" width="1024" height="512"/>
         <texture type="2d" name="grid" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 .15 .2" width="512" height="512"/>
         <material name="grass_mat"  texture="grass"  texrepeat="10 10" reflectance="0"/>
-        <material name="forest_mat" texture="forest" texrepeat="1 1"   reflectance="0"/>
+        <material name="forest_mat" texture="forest" texrepeat="2 1"   reflectance="0"/>
     </asset>
 <!-- ================================================================================================================================== -->
     <worldbody>
-        <light pos="0 0 3" dir="0 0 -1"/>
-        <geom name="floor" type="plane" size="5 5 0.1" material="grass_mat" friction="2.0 0.005 0.0001" 
+        <light pos="0 0 3" dir="0 0 -1" attenuation="1 0.1 0.02"
+               diffuse="0.45 0.50 0.40" ambient="0.20 0.25 0.18" specular="0.03 0.03 0.03" castshadow="true"/>
+        <geom name="floor" type="plane" size="3 3 0.1" material="grass_mat" friction="2.0 0.005 0.0001" 
               contype="1" conaffinity="1" group="2"/>
+        <geom name="forest_wall_right" type="plane" size="3 1.0 0.3" pos="3 0 1.0" euler="1.5708 1.5708 0" material="forest_mat"
+              contype="0" conaffinity="0" group="2"/>
+        <geom name="forest_wall_ront"  type="plane" size="3 1.0 0.3" pos="0 3 1.0" euler="1.5708 0 0" material="forest_mat"
+              contype="0" conaffinity="0" group="2"/>
         <geom name="slope" type="box" size="0.5 0.5 0.05" friction="2.0 0.005 0.0001" rgba="0.3 0.3 0.3 1"
               pos="0.5 0 0.02" euler="0 -0.15 0" group="1"/>
         <body name="robot_root" pos="0 0 0">
