@@ -41,6 +41,7 @@ def main():
 
     with open(mjcf_path, 'r') as fileObj:
         mjcf_content = fileObj.read()
+    mjcf_content = mjcf_content.replace('$MY_ROBOT_DESCRIPTION_PATH', pkg_share_path)
     mjcf_content = mjcf_content.replace('</asset>', robot_assets + '\n    </asset>')
     mjcf_content = mjcf_content.replace('<include file=\"'+usdf_file+'\"/>', robot_bodies)
     mjcf_content = mjcf_content.replace('name="calfSphere_FL"', 'name="calfSphere_FL" class="foot_friction"')
