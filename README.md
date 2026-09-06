@@ -2,7 +2,7 @@
 
 Cubic Doggo 06Z Neucommu is upgraded from [Cubic Doggo 06R High Mobility](https://github.com/SphericalCowww/CubicDoggo_06R). The goal is to integrate a simulation (Gazebo/Mujoco) and reinforcement learning (PyTorch) to control walking gait. 
 
-Demos: Gazebo with Plotjuggler ([Reddit](https://www.reddit.com/r/ROS/comments/1vomb40/cubic_doggo_update_on_gazebo/)), Gazebo sim vs real ([Reddit](https://www.reddit.com/r/robotics/comments/1vpu2sd/cubic_doggo_found_a_nice_spot_on_the_ramp/))
+Demos: Gazebo with Plotjuggler ([Reddit](https://www.reddit.com/r/ROS/comments/1vomb40/cubic_doggo_update_on_gazebo/)), Gazebo sim vs real ([Reddit](https://www.reddit.com/r/robotics/comments/1vpu2sd/cubic_doggo_found_a_nice_spot_on_the_ramp/)), MuJoCo sim ([Reddit](https://www.reddit.com/r/ROS/comments/1w8vm74/cubic_doggo_update_ros2_bridge_to_mujoco/)
 
 ## Moment of inertia from FreeCAD
 
