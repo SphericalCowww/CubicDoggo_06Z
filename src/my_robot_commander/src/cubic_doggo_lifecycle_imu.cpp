@@ -190,6 +190,7 @@ public:
             double roll, pitch, yaw;
             matrixObj.getRPY(roll, pitch, yaw);
             double raw_pitch = pitch*(180.0/M_PI);  // use if negative when tilting leftward
+            //double raw_pitch =-pitch*(180.0/M_PI);  // use if negative when tilting rightward
             double raw_roll  = roll *(180.0/M_PI);  // use if negative when tilting forward
             //double raw_roll  =-roll *(180.0/M_PI);  // use if negative when tilting backward
             double alpha = 0.8;                     // [0.0, 1.0], lower the smoother but with lags

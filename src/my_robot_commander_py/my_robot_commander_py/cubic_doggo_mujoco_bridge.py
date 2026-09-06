@@ -29,13 +29,16 @@ class CubicDoggoMuJoCoBridge(Node):
         self.ctrl_joint_names = []
         self.ctrl_joint_map   = {}
         self.ctrl_qpos_addrs  = []
+        self.ctrl_qvel_addrs  = []
         for joint_idx in range(self.model.nu):
             joint_id   = self.model.actuator_trnid[joint_idx, 0]
             joint_name = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, joint_idx)
             qpos_addr  = self.model.jnt_qposadr[joint_id]
+            qvel_addr  = self.model.jnt_dofadr[joint_id] 
             self.ctrl_joint_names.append(joint_name)
             self.ctrl_joint_map[joint_name] = joint_idx
             self.ctrl_qpos_addrs.append(qpos_addr)
+            self.ctrl_qvel_addrs.append(qvel_addr)
             self.data.ctrl[joint_idx] = self.data.qpos[qpos_addr]
 
     def apply_joint_positions(self, ros_joint_names, positions):
@@ -66,6 +69,8 @@ class CubicDoggoMuJoCoBridge(Node):
         joint_state_msg.header.stamp = time_now
         joint_state_msg.name = self.ctrl_joint_names
         joint_state_msg.position = [float(self.data.qpos[qpos_addr]) for qpos_addr in self.ctrl_qpos_addrs] 
+        joint_state_msg.velocity = [float(self.data.qvel[qvel_addr]) for qvel_addr in self.ctrl_qvel_addrs]
+        joint_state_msg.effort   = [float(self.data.actuator_force[joint_idx]) for joint_idx in range(self.model.nu)]
         self.joint_state_pub.publish(joint_state_msg)
 
         msg = Imu()
