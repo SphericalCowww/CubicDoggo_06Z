@@ -99,8 +99,6 @@ Halfway through, realized MuJoCo is the modern way for robot simulation in pytho
 
 ### Launch MuJoCo with ROS2
 
-    cd CubicDoggo_06Z/src/my_robot_description/urdf
-    ros2 run xacro xacro cubic_doggo.gazebo.xacro > cubic_doggo.mujoco.urdf
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
@@ -108,9 +106,20 @@ Halfway through, realized MuJoCo is the modern way for robot simulation in pytho
     ros2 run my_robot_commander_py cubic_doggo_mujoco_read_urdf 
     # toggle 1 for visual, and toggle 0 for collision
 
+Also to do a one-leg test, change ``CubicDoggo_06Z/src/my_robot_commander_py/my_robot_commander_py/cubic_doggo_mujoco_read_urdf.py``:
+
+    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
+    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.xml')
+    # to 
+    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_leg1.urdf.xacro')
+    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_leg1.mujoco.xml')
+
 To launch with commander/controller:
     
     ros2 launch my_robot_commander_py cubic_doggo.mujoco.with_lifecycle.launch.py
+    ros2 run plotjuggler plotjuggler      # on another terminal
+
+Note that this ROS2 to MuJoCo bridge does not use mujoco_ros2_control, but action server and joint state publisher instead. The reaction should rightfully be slower and less deterministic, but MuJoCo is plenty fast that its speed actually needs to be tuned by actuator PID under ``CubicDoggo_06Z/src/my_robot_description/urdf/cubic_doggo.mujoco.xml``.
 
 ## References:
 
