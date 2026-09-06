@@ -121,6 +121,10 @@ To launch with commander/controller:
 
 Note that this ROS2 to MuJoCo bridge does not use mujoco_ros2_control, but action server and joint state publisher instead. The reaction should rightfully be slower and less deterministic, but MuJoCo is plenty fast that its speed actually needs to be tuned by actuator PID under ``CubicDoggo_06Z/src/my_robot_description/urdf/cubic_doggo.mujoco.xml``.
 
+<img src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_MuJoCo.png" height="500">
+
+Using the same ROS2 commander as for Gazebo.
+
 ## References:
 
 - CFD Intech, FreeCAD Tutorial | Exercise 6: How to Calculate Moment of Inertia of Model and Paste to Spreadsheet (<a href="https://www.youtube.com/watch?v=h6S0lKXxD3s">YouTube</a>) 
