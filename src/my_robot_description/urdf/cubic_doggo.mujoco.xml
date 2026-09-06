@@ -81,7 +81,7 @@
                   ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
                   kp="50" kv="5"/>
         <position name="servo2_servo2_padding_BL" joint="servo2_servo2_padding_BL" 
-                  ctrlrange="2.62 4.71" forcerange="-1.4 1.4"
+                  ctrlrange="1.57 3.67" forcerange="-1.4 1.4"
                   kp="50" kv="5"/>
         <position name="servo3_calfFeet_BL" joint="servo3_calfFeet_BL" 
                   ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
@@ -91,7 +91,7 @@
                   ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
                   kp="50" kv="5"/>
         <position name="servo2_servo2_padding_BR" joint="servo2_servo2_padding_BR" 
-                  ctrlrange="1.57 3.67" forcerange="-1.4 1.4"
+                  ctrlrange="2.62 4.71" forcerange="-1.4 1.4"
                   kp="50" kv="5"/>
         <position name="servo3_calfFeet_BR" joint="servo3_calfFeet_BR" 
                   ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
