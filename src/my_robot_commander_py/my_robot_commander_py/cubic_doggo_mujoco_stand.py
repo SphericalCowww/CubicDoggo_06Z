@@ -9,32 +9,36 @@ import pinocchio
 
 from ._GlobalFuncs import *
 #############################################################################################################################
-def solve_leg_ik(model, data, frame_ids, target_positions, joint_angle_init, max_iter=100, eps=1e-4):
-    joint_angle    = joint_angle_init.copy()
+def solve_leg_ik(pinocchio_model, pinocchio_data, frame_ids, target_positions, joint_angle_init, max_iter=100, eps=1e-4):
     delta_time     = 0.1
     damping_factor = 1e-6
 
+    joint_angle = joint_angle_init.copy()
     for _ in range(max_iter):
-        pinocchio.forwardKinematics(model, data, joint_angle)
-        pinocchio.updateFramePlacements(model, data)
-        
+        pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, joint_angle)
+        pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
+        oMbase = pinocchio_data.oMf[pinocchio_model.getFrameId('base_link')]        # oM: original frame 
+ 
         delta_positions, trans_Jacobs = [], []
         for frame_id, target_position in zip(frame_ids, target_positions):
-            curr_position = data.oMf[frame_id].translation
+            #curr_position = pinocchio_data.oMf[frame_id].translation
+            curr_position = oMbase.actInv(pinocchio_data.oMf[frame_id]).translation
             delta_positions.append(curr_position - target_position)
             
-            trans_Jacob = pinocchio.computeFrameJacobian(model, data, joint_angle, frame_id, 
+            trans_Jacob = pinocchio.computeFrameJacobian(pinocchio_model, pinocchio_data, joint_angle, frame_id, 
                                                          pinocchio.ReferenceFrame.LOCAL_WORLD_ALIGNED)[:3, :]
-            trans_Jacobs.append(trans_Jacob)
+            trans_Jacobs.append(trans_Jacob[:, 6:])         # with only the leg Jacobian
 
         delta_position_full = np.concatenate(delta_positions)
         if np.linalg.norm(delta_position_full) < eps:
             break
 
         trans_Jacob_all = np.vstack(trans_Jacobs)
-        joint_velocity = -trans_Jacob_all.T @ np.linalg.inv(
+        joint_velocity = np.zeros(pinocchio_model.nv)
+        joint_velocity[6:] = -trans_Jacob_all.T @ np.linalg.inv(
             trans_Jacob_all @ trans_Jacob_all.T + damping_factor*np.eye(trans_Jacob_all.shape[0])) @ delta_position_full
-        joint_angle = pinocchio.integrate(model, joint_angle, joint_velocity*delta_time)
+    
+        joint_angle = pinocchio.integrate(pinocchio_model, joint_angle, joint_velocity*delta_time)
     return joint_angle
 #############################################################################################################################
 def main():
@@ -45,10 +49,10 @@ def main():
         joint_names.append('servo2_servo2_padding_'+leg_prefix)
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
     target_feet_standing = [
-        np.array([ 0.09,  0.07, -0.12]), # FL
-        np.array([ 0.09, -0.07, -0.12]), # FR
-        np.array([-0.09,  0.07, -0.12]), # BL
-        np.array([-0.09, -0.07, -0.12])  # BR
+        np.array([  0.008,  0.20, -0.04]), # FL
+        np.array([ -0.008,  0.20, -0.04]), # FR
+        np.array([  0.008, -0.02, -0.04]), # BL
+        np.array([ -0.008, -0.02, -0.04])  # BR
     ]
 
     pkg_share_path = get_package_share_directory('my_robot_description')
@@ -61,6 +65,7 @@ def main():
     urdf_content = urdf_raw.replace('package://my_robot_description', pkg_share_path)
     urdf_content = urdf_content.replace('</robot>', '<mujoco><compiler discardvisual="false"/></mujoco></robot>')
 
+    pinocchio_model, pinocchio_data = None, None
     urdf_pinocchio = re.sub(r'<joint name="world_base_link".*?</joint>', '', urdf_content, flags=re.DOTALL)
     urdf_pinocchio = urdf_pinocchio.replace('<link name="world"/>', '')
     with tempfile.NamedTemporaryFile(mode='w+', suffix='.urdf') as tempfileObj:
@@ -68,10 +73,19 @@ def main():
         tempfileObj.flush()
         pinocchio_model = pinocchio.buildModelFromUrdf(tempfileObj.name, pinocchio.JointModelFreeFlyer())
         pinocchio_data  = pinocchio_model.createData()
+
     foot_frame_ids = [pinocchio_model.getFrameId('calfSphere_'+leg_prefix) for leg_prefix in leg_prefixes]
     joint_angle_neutral = pinocchio.neutral(pinocchio_model)
-    joint_angle_target  = solve_leg_ik(pinocchio_model, pinocchio_data, foot_frame_ids, target_feet_standing, 
-                                       joint_angle_neutral)
+    pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, joint_angle_neutral)
+    pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
+    for leg_prefix, frame_id in zip(leg_prefixes, foot_frame_ids):
+        curr_position = pinocchio_data.oMf[frame_id].translation
+        print("cubic_doggo_mujoco_stand(): leg", leg_prefix, ", curr_position =", curr_position)
+
+    joint_angle_target = solve_leg_ik(pinocchio_model, pinocchio_data, foot_frame_ids, target_feet_standing, 
+                                      joint_angle_neutral)
+
+    print("joint_angle_target:", joint_angle_target)
 
     mujoco_joint_targets = []
     for joint_name in joint_names:
@@ -86,7 +100,7 @@ def main():
     with tempfile.NamedTemporaryFile(mode='w+', suffix='.xml') as tempfileObj:
         mujoco.mj_saveLastXML(tempfileObj.name, urdf_mujoco)
         tempfileObj.seek(0)
-        urdf_mujoco = tempfileObj.read().decode('utf-8')
+        urdf_mujoco = tempfileObj.read()
     robot_assets = re.search(r'<asset>(.*?)</asset>',         urdf_mujoco, re.DOTALL).group(1)
     robot_bodies = re.search(r'<worldbody>(.*?)</worldbody>', urdf_mujoco, re.DOTALL).group(1)
     with open(mjcf_path, 'r') as fileObj:
@@ -99,7 +113,6 @@ def main():
     mjcf_mujoco = mjcf_mujoco.replace('name="calfSphere_FR"', 'name="calfSphere_FR" class="foot_friction"')
     mjcf_mujoco = mjcf_mujoco.replace('name="calfSphere_BL"', 'name="calfSphere_BL" class="foot_friction"')
     mjcf_mujoco = mjcf_mujoco.replace('name="calfSphere_BR"', 'name="calfSphere_BR" class="foot_friction"')
-    print(mjcf_mujoco)
 
     mujoco_model = mujoco.MjModel.from_xml_string(mjcf_mujoco)
     mujoco_data  = mujoco.MjData(mujoco_model)
