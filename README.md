@@ -99,20 +99,19 @@ Halfway through, realized MuJoCo is the modern way for robot simulation in pytho
 
 ### Launch MuJoCo with ROS2
 
+To have 1 leg for the MuJoCo test, run:
+
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
-    ros2 run my_robot_commander_py cubic_doggo_mujoco_read_urdf 
+    ros2 run my_robot_commander_py cubic_leg1_mujoco_read_urdf 
     # toggle 1 for visual, and toggle 0 for collision
+    # expand control on the right-hand side to change joint values
 
-Also to do a one-leg test, change ``CubicDoggo_06Z/src/my_robot_commander_py/my_robot_commander_py/cubic_doggo_mujoco_read_urdf.py``:
+To have the full robot with IMU as output, run:
 
-    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
-    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.xml')
-    # to 
-    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_leg1.urdf.xacro')
-    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_leg1.mujoco.xml')
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_read_urdf 
 
 To launch with commander/controller:
     
