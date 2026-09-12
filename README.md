@@ -86,7 +86,8 @@ Halfway through, realized MuJoCo is the modern way for robot simulation in pytho
     cd ..                                                                # do NOT create the CubicDoggo_06Z_env/ inside CubicDoggo_06Z/, it will mess up colcon build
     python3 -m venv CubicDoggo_06Z_env/
     source CubicDoggo_06Z_env/bin/activate
-    export PYTHONPATH=$PYTHONPATH:.../CubicDoggo_06Z_env/lib/python3.12/site-packages   # put it in .bashrc
+    export PYTHONPATH=$PYTHONPATH:.../CubicDoggo_06Z_env/lib/python3.12/site-packages     # put it in .bashrc
+    export PYTHONPATH=$PYTHONPATH:.../CubicDoggo_06Z_env/lib/python3.12/site-packages/cmeel.prefix/lib/python3.12/site-packages
     pip install --upgrade pip 
     pip install catkin_pkg empy lark
     pip install jinja2 pyyaml typeguard setuptools wheel
