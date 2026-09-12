@@ -8,9 +8,9 @@ from _GlobalFuncs import *
 #############################################################################################################################
 def main():
     pkg_share_path = get_package_share_directory('my_robot_description')
-    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
-    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.xml')
-    usdf_file      =                                      'cubic_doggo.mujoco.urdf'
+    xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_leg1.urdf.xacro')
+    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_leg1.mujoco.xml')
+    usdf_file      =                                      'cubic_leg1.mujoco.urdf'
 
     xacro_raw = xacro.process_file(xacro_path)
     urdf_raw  = xacro_raw.toxml()

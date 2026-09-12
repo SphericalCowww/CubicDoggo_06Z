@@ -123,8 +123,8 @@ def main():
     mjcf_content = mjcf_content.replace('name="calfSphere_BL"', 'name="calfSphere_BL" class="foot_friction"')
     mjcf_content = mjcf_content.replace('name="calfSphere_BR"', 'name="calfSphere_BR" class="foot_friction"')
 
-    model  = mujoco.MjModel.from_xml_string(mjcf_content)
-    data   = mujoco.MjData(model)
+    model = mujoco.MjModel.from_xml_string(mjcf_content)
+    data  = mujoco.MjData(model)
     if model.nkey > 0:
         mujoco.mj_resetDataKeyframe(model, data, 0)     #prevent moveit from setting every joint 0
     bridge = CubicDoggoMuJoCoBridge(model, data)

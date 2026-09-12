@@ -6,6 +6,7 @@ setup(
     name=package_name,
     version='0.0.0',
     packages=find_packages(exclude=['test']),
+    py_modules=['_GlobalFuncs'],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -24,8 +25,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'cubic_leg1_mujoco_read_urdf  = my_robot_commander_py.cubic_leg1_mujoco_read_urdf:main',
             'cubic_doggo_mujoco_read_urdf = my_robot_commander_py.cubic_doggo_mujoco_read_urdf:main',
             'cubic_doggo_mujoco_bridge    = my_robot_commander_py.cubic_doggo_mujoco_bridge:main',
+            'cubic_doggo_mujoco_stand     = my_robot_commander_py.cubic_doggo_mujoco_stand:main',
         ],
     },
 )
