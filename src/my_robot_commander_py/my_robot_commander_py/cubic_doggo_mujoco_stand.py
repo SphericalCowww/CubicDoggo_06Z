@@ -7,7 +7,7 @@ import xacro
 import mujoco, mujoco.viewer
 import pinocchio
 
-from _GlobalFuncs import *
+from ._GlobalFuncs import *
 #############################################################################################################################
 def solve_leg_ik(model, data, frame_ids, target_positions, joint_angle_init, max_iter=100, eps=1e-4):
     joint_angle    = joint_angle_init.copy()

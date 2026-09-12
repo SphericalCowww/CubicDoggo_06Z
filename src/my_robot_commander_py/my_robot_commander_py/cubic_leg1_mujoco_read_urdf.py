@@ -4,7 +4,7 @@ import tempfile
 import xacro
 import mujoco, mujoco.viewer
 
-from _GlobalFuncs import *
+from ._GlobalFuncs import *
 #############################################################################################################################
 def main():
     pkg_share_path = get_package_share_directory('my_robot_description')
@@ -45,15 +45,6 @@ def main():
             step_start = time.time()
             
             mujoco.mj_step(model, data)
-            accel_data = data.sensor('accel').data
-            gyro_data  = data.sensor('gyro').data
-            quat_data  = data.sensor('quat').data
-            roll_rad, pitch_rad, yaw_rad = quat2euler(*quat_data)
-            roll_deg  = math.degrees(roll_rad)
-            pitch_deg = math.degrees(pitch_rad)
-            yaw_deg   = math.degrees(yaw_rad)
-            print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}", end='\r')           
- 
             viewer.sync()
             time_until_next_step = model.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:

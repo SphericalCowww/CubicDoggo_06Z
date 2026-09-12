@@ -4,7 +4,7 @@ import tempfile
 import xacro
 import mujoco, mujoco.viewer
 
-from _GlobalFuncs import *
+from ._GlobalFuncs import *
 #############################################################################################################################
 def main():
     pkg_share_path = get_package_share_directory('my_robot_description')
