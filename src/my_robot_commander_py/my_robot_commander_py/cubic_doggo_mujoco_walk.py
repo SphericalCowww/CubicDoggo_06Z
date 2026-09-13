@@ -9,6 +9,67 @@ import pinocchio
 
 from ._GlobalFuncs import *
 #############################################################################################################################
+def compute_trot_foot_targets(gait_phase, home_positions, 
+                             swing_fraction=0.5, lift=0.03, 
+                             x_stride=0.02, y_stride=0.0, 
+                             x_shift=0.0, y_shift=0.0):
+    target_feet = []
+    
+    for leg_idx in range(4):
+        target_x = home_positions[leg_idx][0]
+        target_y = home_positions[leg_idx][1]
+        target_z = home_positions[leg_idx][2]
+        
+        # Trot Gait Pairing: Group A (FL, BR) and Group B (FR, BL)
+        is_group_b = (leg_idx == 1 or leg_idx == 2)
+        is_back_leg = (leg_idx == 2 or leg_idx == 3)
+        
+        local_phase = gait_phase
+        if swing_fraction <= 0.25:
+            # Crawl / Walk phase offsets
+            phase_offsets = [0.00, 0.50, 0.75, 0.25] # FL, FR, BL, BR
+            local_phase += phase_offsets[leg_idx]
+        elif is_group_b:
+            # Trot phase offset (180 deg out of phase)
+            local_phase += 0.5
+            
+        if local_phase >= 1.0:
+            local_phase -= 1.0
+
+        x_offset, y_offset, z_offset = 0.0, 0.0, 0.0
+        
+        # --- SWING PHASE ---
+        if local_phase < swing_fraction:
+            swing_progress = local_phase / swing_fraction
+            z_offset = lift * np.sin(swing_progress * np.pi)
+            
+            if swing_fraction >= 0.5:
+                x_offset = -x_stride + 2.0 * x_stride * swing_progress
+                y_offset = -y_stride + 2.0 * y_stride * swing_progress
+            else:
+                x_offset = -x_stride * np.cos(swing_progress * np.pi)
+                y_offset = -y_stride * np.cos(swing_progress * np.pi)
+                
+        # --- STANCE PHASE ---
+        else:
+            stance_progress = (local_phase - swing_fraction) / (1.0 - swing_fraction)
+            z_offset = 0.0
+            x_offset = x_stride - 2.0 * x_stride * stance_progress
+            y_offset = y_stride - 2.0 * y_stride * stance_progress
+
+        # Apply offsets (Matching your C++ logic)
+        if is_back_leg:
+            target_x -= (x_offset + x_shift)
+        else:
+            target_x += (x_offset + x_shift)
+            
+        target_y += (y_offset + y_shift)
+        target_z += z_offset  # Note: sign depends on base frame direction (+Z up)
+
+        target_feet.append(np.array([target_x, target_y, target_z]))
+
+    return target_feet
+#############################################################################################################################
 def main():
     leg_prefixes = ['FL', 'FR', 'BL', 'BR']
     joint_names = []
@@ -68,7 +129,7 @@ def main():
 
     ################
     pinocchio_joint_inits = pinocchio.neutral(pinocchio_model)
-    pinocchio_joint_inits[ :3] = copy.deepcopy(mujoco_data.qpos[ :3])
+    #pinocchio_joint_inits[ :3] = copy.deepcopy(mujoco_data.qpos[ :3])
     #pinocchio_joint_inits[3:6] = copy.deepcopy(mujoco_data.qpos[4:7])
     #pinocchio_joint_inits[  6] = copy.deepcopy(mujoco_data.qpos[3])
     for joint_name in joint_names:
@@ -107,25 +168,53 @@ def main():
     print("mujoco_ctrl_targets:",     mujoco_ctrl_targets,     len(mujoco_ctrl_targets))
     ################
     action_delay_time = 1.0         #s
+    gait_phase = 0.0
+    gait_frequency = 1.5  # Trot frequency in Hz
+    dt = mujoco_model.opt.timestep
+
     with mujoco.viewer.launch_passive(mujoco_model, mujoco_data) as viewer:
         viewer.opt.geomgroup[0] = 0
+    
         while viewer.is_running():
             step_start = time.time()
-            if mujoco_data.time > action_delay_time:
-                mujoco_data.ctrl[:] = mujoco_ctrl_targets
 
+            # Update gait phase
+            gait_phase += gait_frequency * dt
+            if gait_phase >= 1.0:
+                gait_phase -= 1.0
+
+            # Compute dynamic foot targets for current phase
+            target_feet = compute_trot_foot_targets(
+                gait_phase=gait_phase,
+                home_positions=home_feet_standing,
+                swing_fraction=0.5,
+                lift=0.025,       # 2.5 cm foot lift
+                x_stride=0.03,    # 3.0 cm stride
+                y_stride=0.0
+            )
+
+            # Solve IK for updated target positions
+            pinocchio_joint_targets = solve_leg_ik(
+                pinocchio_model, pinocchio_data, 
+                pinocchio_joint_inits, pinocchio_leg_ids, 
+                target_feet
+            )
+
+            # Extract motor targets
+            mujoco_ctrl_targets = []
+            for joint_name in joint_names:
+                pin_id = pinocchio_model.getJointId(joint_name)
+                if pin_id < len(pinocchio_model.joints):
+                    pin_idx = pinocchio_model.joints[pin_id].idx_q
+                    mujoco_ctrl_targets.append(pinocchio_joint_targets[pin_idx])
+
+            # Step simulation
+            mujoco_data.ctrl[:] = mujoco_ctrl_targets
             mujoco.mj_step(mujoco_model, mujoco_data)
-            accel_data = mujoco_data.sensor('accel').data
-            gyro_data  = mujoco_data.sensor('gyro').data
-            quat_data  = mujoco_data.sensor('quat').data
-            roll_rad, pitch_rad, yaw_rad = quat2euler(*quat_data)
-            roll_deg  = math.degrees(roll_rad)
-            pitch_deg = math.degrees(pitch_rad)
-            yaw_deg   = math.degrees(yaw_rad)
-            print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}", end='\r')           
- 
+
+            # Update viewer
             viewer.sync()
-            time_until_next_step = mujoco_model.opt.timestep - (time.time() - step_start)
+            time_until_next_step = dt - (time.time() - step_start)
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
 #############################################################################################################################
