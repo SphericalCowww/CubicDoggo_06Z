@@ -8,7 +8,7 @@
         <geom contype="1" conaffinity="1" friction="0.4 0.005 0.0001" solref="0.02 1" solimp="0.9 0.95 0.001"/>
         <joint damping="0.1" armature="0.01" frictionloss="0.05" ref="0.0"/>
         <default class="foot_friction">
-            <geom friction="2.0 0.005 0.0001" 
+            <geom friction="4.0 0.005 0.0001" 
                   solref="0.01 1" 
                   solimp="0.9 0.99 0.001" 
                   margin="0.001" 
@@ -32,9 +32,9 @@
                diffuse="0.45 0.50 0.40" ambient="0.20 0.25 0.18" specular="0.03 0.03 0.03"/>
         <geom name="floor" type="plane" size="3 3 0.1" material="grass_mat" friction="2.0 0.005 0.0001" 
               contype="1" conaffinity="1" group="2"/>
-        <geom name="forest_wall_right" type="plane" size="3 1.0 0.3" pos="3 0 1.0" euler="1.5708 -1.5708 0" material="forest_mat"
+        <geom name="forest_wall_right" type="plane" size="3.0 0.75 0.3" pos="3 0 0.75" euler="1.5708 -1.5708 0" material="forest_mat"
               contype="0" conaffinity="0" group="2"/>
-        <geom name="forest_wall_front" type="plane" size="3 1.0 0.3" pos="0 3 1.0" euler="1.5708 0 0" material="forest_mat"
+        <geom name="forest_wall_front" type="plane" size="3.0 0.75 0.3" pos="0 3 0.75" euler="1.5708 0 0" material="forest_mat"
               contype="0" conaffinity="0" group="2"/>
         <geom name="slope" type="box" size="0.5 0.5 0.05" friction="2.0 0.005 0.0001" rgba="0.3 0.3 0.3 1"
               pos="0.5 0 0.02" euler="0 -0.15 0" group="1"/>

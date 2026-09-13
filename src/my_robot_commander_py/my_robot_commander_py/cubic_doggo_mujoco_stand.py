@@ -85,11 +85,11 @@ def main():
     pinocchio_leg_ids = [pinocchio_model.getFrameId('calfSphere_'+leg_prefix) for leg_prefix in leg_prefixes]
     pinocchio_base_frame = pinocchio_data.oMf[pinocchio_model.getFrameId('base_link')]
     for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
-        curr_position = pinocchio_data.oMf[leg_id].translation 
-        print("world frame leg", leg_prefix, leg_id, ", curr_position =", curr_position)
+        feet_currs = pinocchio_data.oMf[leg_id].translation 
+        print("world frame leg", leg_prefix, leg_id, ", feet_currs =", feet_currs)
     for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
-        curr_position = pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation 
-        print("base frame leg", leg_prefix, leg_id, ", curr_position =", curr_position)
+        feet_currs = pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation 
+        print("base frame leg", leg_prefix, leg_id, ", feet_currs =", feet_currs)
     pinocchio_joint_targets = getLegIK(pinocchio_model, pinocchio_data, pinocchio_joint_inits,
                                        pinocchio_leg_ids, feet_stand_targets)
 

@@ -50,7 +50,7 @@ def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_s
             target_x += (x_offset + x_shift)
             
         target_y += (y_offset + y_shift)
-        target_z += z_offset
+        target_z -= z_offset
         target_feet.append(np.array([target_x, target_y, target_z]))
     return target_feet
 #############################################################################################################################
@@ -136,43 +136,56 @@ def main():
             mujoco_ctrl_targets.append(pinocchio_joint_targets[pinocchio_joint_idx])
     
     ################
-    action_delay_time = 1.0                         # s
+    text_update_time   = 0.1                         # s
+    action_update_time = 3.0                         # s
+    action_delay_time  = 1.0                         # s
+
     delta_t = mujoco_model.opt.timestep
     swing_fraction = 0.5
     gait_frequency = 1.5                            # Hz
-    lift, x_shift, y_shift = 0.04, 0.0, -0.007      # mm
+    lift, x_shift, y_shift = 0.03, 0.0, -0.007      # m
     
+    last_text_update = 0.0
+    last_action_update = 0.0
     is_standing = False
-    gait_phase = 0.0 
+    gait_phase = 0.0
+    x_stride, y_stride = 0.0, 0.0
     with mujoco.viewer.launch_passive(mujoco_model, mujoco_data) as viewer:
         viewer.opt.geomgroup[0] = 0
         while viewer.is_running():
             step_start = time.time()
 
+            feet_currs = []
+            pinocchio_joint_currs = pinocchio.neutral(pinocchio_model)
+            for joint_name in joint_names:
+                mujoco_joint_id    = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
+                pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
+                if mujoco_joint_id != -1 and pinocchio_joint_id < len(pinocchio_model.joints):
+                    mujoco_joint_idx    = mujoco_model.jnt_qposadr[mujoco_joint_id]
+                    pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
+                    pinocchio_joint_currs[pinocchio_joint_idx] = copy.deepcopy(mujoco_data.qpos[mujoco_joint_idx])
+            pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, pinocchio_joint_currs)
+            pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
+            pinocchio_base_frame = pinocchio_data.oMf[pinocchio_base_id]
+            for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
+                feet_currs.append(pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation)
+
             if mujoco_data.time > action_delay_time:
                 if is_standing == False:
-                    curr_positions = []
-                    pinocchio_joint_currs = pinocchio.neutral(pinocchio_model)
-                    for joint_name in joint_names:
-                        mujoco_joint_id    = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
-                        pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
-                        if mujoco_joint_id != -1 and pinocchio_joint_id < len(pinocchio_model.joints):
-                            mujoco_joint_idx    = mujoco_model.jnt_qposadr[mujoco_joint_id]
-                            pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
-                            pinocchio_joint_currs[pinocchio_joint_idx] = copy.deepcopy(mujoco_data.qpos[mujoco_joint_idx])
-                    pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, pinocchio_joint_currs)
-                    pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
-                    pinocchio_base_frame = pinocchio_data.oMf[pinocchio_base_id]
-                    for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
-                        curr_positions.append(pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation)
                     feet_errors = [np.linalg.norm(np.array(curr) - np.array(target)) 
-                                   for curr, target in zip(curr_positions, feet_stand_targets)]
+                                   for curr, target in zip(feet_currs, feet_stand_targets)]
                     if np.max(feet_errors) < 0.01:
                         gait_phase = 0.0
                         is_standing = True
-                        print('Stand gait complete, walk gait starting...')
+                        print('\nStand gait complete, walk gait starting...')
                 else:
-                    x_stride, y_stride = 0.0, 0.0
+                    if (mujoco_data.time - last_action_update) > action_update_time:
+                        if x_stride != 0.0:
+                            x_stride = 0.0
+                        else:
+                            x_stride = np.random.uniform(-0.03, 0.03)
+                        y_stride = np.random.uniform(0.02, 0.04)
+                        last_action_update = copy.deepcopy(mujoco_data.time)
 
                     gait_phase += gait_frequency*delta_t
                     if gait_phase >= 1.0:
@@ -188,8 +201,13 @@ def main():
                             pin_idx = pinocchio_model.joints[pin_id].idx_q
                             mujoco_ctrl_targets.append(pinocchio_joint_targets[pin_idx])
                 mujoco_data.ctrl[:] = mujoco_ctrl_targets           
- 
             mujoco.mj_step(mujoco_model, mujoco_data)
+           
+            mujoco_base_id = mujoco_model.body('robot_root').id
+            base_height = mujoco_data.xpos[mujoco_base_id][2] 
+            
+            height_m = base_height
+            #height_m = np.average([feet_curr[2] for feet_curr in feet_currs])
             accel_data = mujoco_data.sensor('accel').data
             gyro_data  = mujoco_data.sensor('gyro').data
             quat_data  = mujoco_data.sensor('quat').data
@@ -197,7 +215,16 @@ def main():
             roll_deg  = math.degrees(roll_rad)
             pitch_deg = math.degrees(pitch_rad)
             yaw_deg   = math.degrees(yaw_rad)
-            print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}", end='\r')
+            telemetry_str  = f"Height:{height_m:9.4f}m | Roll:{roll_deg:5.1f}deg | Pitch:{pitch_deg:5.1f}deg | "
+            telemetry_str += f"Yaw:{yaw_deg:5.1f}deg"
+            if (mujoco_data.time - last_text_update) > text_update_time:
+                telemetry_str  = f"Height:{height_m:9.4f}m | Roll:{roll_deg:5.1f}deg | Pitch:{pitch_deg:5.1f}deg | "
+                telemetry_str += f"Yaw:{yaw_deg:5.1f}deg\n"
+                telemetry_str += f"X Stride:{x_stride:8.3f}m | Y Stride:{y_stride:8.3f}m"
+                viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_100, mujoco.mjtGridPos.mjGRID_TOPRIGHT, 
+                                  "TELEMETRY", telemetry_str))
+                last_text_update = copy.deepcopy(mujoco_data.time)
+                print(telemetry_str.replace('\n', ' | '), end='\r')
 
             viewer.sync()
             time_until_next_step = delta_t - (time.time() - step_start)
