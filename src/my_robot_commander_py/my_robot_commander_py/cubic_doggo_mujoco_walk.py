@@ -9,65 +9,49 @@ import pinocchio
 
 from ._GlobalFuncs import *
 #############################################################################################################################
-def compute_trot_foot_targets(gait_phase, home_positions, 
-                             swing_fraction=0.5, lift=0.03, 
-                             x_stride=0.02, y_stride=0.0, 
-                             x_shift=0.0, y_shift=0.0):
+def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_stride, y_stride, x_shift, y_shift,
+                           phase_offsets=[0.00, 0.50, 0.75, 0.25]):          # FL, FR, BL, BR
     target_feet = []
-    
-    for leg_idx in range(4):
+    for leg_idx in range(len(home_positions)):
         target_x = home_positions[leg_idx][0]
         target_y = home_positions[leg_idx][1]
         target_z = home_positions[leg_idx][2]
         
-        # Trot Gait Pairing: Group A (FL, BR) and Group B (FR, BL)
-        is_group_b = (leg_idx == 1 or leg_idx == 2)
-        is_back_leg = (leg_idx == 2 or leg_idx == 3)
+        is_group_a       = (leg_idx == 0 or leg_idx == 3)
+        is_group_b       = (leg_idx == 1 or leg_idx == 2)
+        is_group_backLeg = (leg_idx == 2 or leg_idx == 3)
         
-        local_phase = gait_phase
+        local_phase = copy.deepcopy(gait_phase)
         if swing_fraction <= 0.25:
-            # Crawl / Walk phase offsets
-            phase_offsets = [0.00, 0.50, 0.75, 0.25] # FL, FR, BL, BR
             local_phase += phase_offsets[leg_idx]
         elif is_group_b:
-            # Trot phase offset (180 deg out of phase)
             local_phase += 0.5
-            
         if local_phase >= 1.0:
             local_phase -= 1.0
 
         x_offset, y_offset, z_offset = 0.0, 0.0, 0.0
-        
-        # --- SWING PHASE ---
         if local_phase < swing_fraction:
-            swing_progress = local_phase / swing_fraction
-            z_offset = lift * np.sin(swing_progress * np.pi)
-            
+            swing_progress = local_phase/swing_fraction
+            z_offset = lift*np.sin(swing_progress*np.pi)
             if swing_fraction >= 0.5:
-                x_offset = -x_stride + 2.0 * x_stride * swing_progress
-                y_offset = -y_stride + 2.0 * y_stride * swing_progress
+                x_offset = -x_stride + 2.0*x_stride*swing_progress
+                y_offset = -y_stride + 2.0*y_stride*swing_progress
             else:
-                x_offset = -x_stride * np.cos(swing_progress * np.pi)
-                y_offset = -y_stride * np.cos(swing_progress * np.pi)
-                
-        # --- STANCE PHASE ---
+                x_offset = -x_stride*np.cos(swing_progress*np.pi)
+                y_offset = -y_stride*np.cos(swing_progress*np.pi)
         else:
-            stance_progress = (local_phase - swing_fraction) / (1.0 - swing_fraction)
+            stance_progress = (local_phase - swing_fraction)/(1.0 - swing_fraction)
             z_offset = 0.0
-            x_offset = x_stride - 2.0 * x_stride * stance_progress
-            y_offset = y_stride - 2.0 * y_stride * stance_progress
-
-        # Apply offsets (Matching your C++ logic)
-        if is_back_leg:
+            x_offset = x_stride - 2.0*x_stride*stance_progress
+            y_offset = y_stride - 2.0*y_stride*stance_progress
+        if is_group_backLeg:
             target_x -= (x_offset + x_shift)
         else:
             target_x += (x_offset + x_shift)
             
         target_y += (y_offset + y_shift)
-        target_z += z_offset  # Note: sign depends on base frame direction (+Z up)
-
+        target_z += z_offset
         target_feet.append(np.array([target_x, target_y, target_z]))
-
     return target_feet
 #############################################################################################################################
 def main():
@@ -77,7 +61,7 @@ def main():
         joint_names.append('servo1_servo1_padding_'+leg_prefix)
         joint_names.append('servo2_servo2_padding_'+leg_prefix)
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
-    target_feet_standing = [
+    feet_stand_targets = [
         np.array([  0.096,  0.152, 0.15]), # FL
         np.array([ -0.096,  0.152, 0.15]), # FR
         np.array([  0.096, -0.078, 0.15]), # BL
@@ -129,9 +113,6 @@ def main():
 
     ################
     pinocchio_joint_inits = pinocchio.neutral(pinocchio_model)
-    #pinocchio_joint_inits[ :3] = copy.deepcopy(mujoco_data.qpos[ :3])
-    #pinocchio_joint_inits[3:6] = copy.deepcopy(mujoco_data.qpos[4:7])
-    #pinocchio_joint_inits[  6] = copy.deepcopy(mujoco_data.qpos[3])
     for joint_name in joint_names:
         mujoco_joint_id    = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
         pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
@@ -139,20 +120,13 @@ def main():
             mujoco_joint_idx    = mujoco_model.jnt_qposadr[mujoco_joint_id]
             pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
             pinocchio_joint_inits[pinocchio_joint_idx] = copy.deepcopy(mujoco_data.qpos[mujoco_joint_idx])
-            print("joint", joint_name, mujoco_joint_id, mujoco_joint_idx, pinocchio_joint_id, pinocchio_joint_idx)
     pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, pinocchio_joint_inits)
     pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
 
     pinocchio_leg_ids = [pinocchio_model.getFrameId('calfSphere_'+leg_prefix) for leg_prefix in leg_prefixes]
-    for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
-        curr_position = pinocchio_data.oMf[leg_id].translation 
-        print("world frame leg", leg_prefix, leg_id, ", curr_position =", curr_position)
-    oMbase = pinocchio_data.oMf[pinocchio_model.getFrameId('base_link')]
-    for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
-        curr_position = oMbase.actInv(pinocchio_data.oMf[leg_id]).translation 
-        print("base frame leg", leg_prefix, leg_id, ", curr_position =", curr_position)
-    pinocchio_joint_targets = solve_leg_ik(pinocchio_model, pinocchio_data, pinocchio_joint_inits,
-                                           pinocchio_leg_ids, target_feet_standing)
+    pinocchio_base_id = pinocchio_model.getFrameId('base_link')
+    pinocchio_joint_targets = getLegIK(pinocchio_model, pinocchio_data, pinocchio_joint_inits,
+                                       pinocchio_leg_ids, feet_stand_targets)
 
     mujoco_ctrl_targets = []
     for joint_name in joint_names:
@@ -161,60 +135,72 @@ def main():
             pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
             mujoco_ctrl_targets.append(pinocchio_joint_targets[pinocchio_joint_idx])
     
-    print("target_feet_standing:",    target_feet_standing,    len(target_feet_standing))
-    print("pinocchio_joint_inits:",   pinocchio_joint_inits,   len(pinocchio_joint_inits))
-    print("pinocchio_joint_targets:", pinocchio_joint_targets, len(pinocchio_joint_targets))
-    print("mujoco_joint_inits:",      mujoco_data.qpos,        len(mujoco_data.qpos))
-    print("mujoco_ctrl_targets:",     mujoco_ctrl_targets,     len(mujoco_ctrl_targets))
     ################
-    action_delay_time = 1.0         #s
-    gait_phase = 0.0
-    gait_frequency = 1.5  # Trot frequency in Hz
-    dt = mujoco_model.opt.timestep
-
+    action_delay_time = 1.0                         # s
+    delta_t = mujoco_model.opt.timestep
+    swing_fraction = 0.5
+    gait_frequency = 1.5                            # Hz
+    lift, x_shift, y_shift = 0.04, 0.0, -0.007      # mm
+    
+    is_standing = False
+    gait_phase = 0.0 
     with mujoco.viewer.launch_passive(mujoco_model, mujoco_data) as viewer:
         viewer.opt.geomgroup[0] = 0
-    
         while viewer.is_running():
             step_start = time.time()
 
-            # Update gait phase
-            gait_phase += gait_frequency * dt
-            if gait_phase >= 1.0:
-                gait_phase -= 1.0
+            if mujoco_data.time > action_delay_time:
+                if is_standing == False:
+                    curr_positions = []
+                    pinocchio_joint_currs = pinocchio.neutral(pinocchio_model)
+                    for joint_name in joint_names:
+                        mujoco_joint_id    = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
+                        pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
+                        if mujoco_joint_id != -1 and pinocchio_joint_id < len(pinocchio_model.joints):
+                            mujoco_joint_idx    = mujoco_model.jnt_qposadr[mujoco_joint_id]
+                            pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
+                            pinocchio_joint_currs[pinocchio_joint_idx] = copy.deepcopy(mujoco_data.qpos[mujoco_joint_idx])
+                    pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, pinocchio_joint_currs)
+                    pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
+                    pinocchio_base_frame = pinocchio_data.oMf[pinocchio_base_id]
+                    for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
+                        curr_positions.append(pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation)
+                    feet_errors = [np.linalg.norm(np.array(curr) - np.array(target)) 
+                                   for curr, target in zip(curr_positions, feet_stand_targets)]
+                    if np.max(feet_errors) < 0.01:
+                        gait_phase = 0.0
+                        is_standing = True
+                        print('Stand gait complete, walk gait starting...')
+                else:
+                    x_stride, y_stride = 0.0, 0.0
 
-            # Compute dynamic foot targets for current phase
-            target_feet = compute_trot_foot_targets(
-                gait_phase=gait_phase,
-                home_positions=home_feet_standing,
-                swing_fraction=0.5,
-                lift=0.025,       # 2.5 cm foot lift
-                x_stride=0.03,    # 3.0 cm stride
-                y_stride=0.0
-            )
-
-            # Solve IK for updated target positions
-            pinocchio_joint_targets = solve_leg_ik(
-                pinocchio_model, pinocchio_data, 
-                pinocchio_joint_inits, pinocchio_leg_ids, 
-                target_feet
-            )
-
-            # Extract motor targets
-            mujoco_ctrl_targets = []
-            for joint_name in joint_names:
-                pin_id = pinocchio_model.getJointId(joint_name)
-                if pin_id < len(pinocchio_model.joints):
-                    pin_idx = pinocchio_model.joints[pin_id].idx_q
-                    mujoco_ctrl_targets.append(pinocchio_joint_targets[pin_idx])
-
-            # Step simulation
-            mujoco_data.ctrl[:] = mujoco_ctrl_targets
+                    gait_phase += gait_frequency*delta_t
+                    if gait_phase >= 1.0:
+                        gait_phase -= 1.0
+                    feet_walk_targets = sineWalkGait_getTarget(feet_stand_targets, gait_phase, swing_fraction,
+                                                               lift, x_stride, y_stride, x_shift, y_shift)
+                    pinocchio_joint_targets = getLegIK(pinocchio_model, pinocchio_data, pinocchio_joint_inits, 
+                                                       pinocchio_leg_ids, feet_walk_targets)
+                    mujoco_ctrl_targets = []
+                    for joint_name in joint_names:
+                        pin_id = pinocchio_model.getJointId(joint_name)
+                        if pin_id < len(pinocchio_model.joints):
+                            pin_idx = pinocchio_model.joints[pin_id].idx_q
+                            mujoco_ctrl_targets.append(pinocchio_joint_targets[pin_idx])
+                mujoco_data.ctrl[:] = mujoco_ctrl_targets           
+ 
             mujoco.mj_step(mujoco_model, mujoco_data)
+            accel_data = mujoco_data.sensor('accel').data
+            gyro_data  = mujoco_data.sensor('gyro').data
+            quat_data  = mujoco_data.sensor('quat').data
+            roll_rad, pitch_rad, yaw_rad = quat2euler(*quat_data)
+            roll_deg  = math.degrees(roll_rad)
+            pitch_deg = math.degrees(pitch_rad)
+            yaw_deg   = math.degrees(yaw_rad)
+            print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}", end='\r')
 
-            # Update viewer
             viewer.sync()
-            time_until_next_step = dt - (time.time() - step_start)
+            time_until_next_step = delta_t - (time.time() - step_start)
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
 #############################################################################################################################

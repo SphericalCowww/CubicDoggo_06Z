@@ -28,6 +28,7 @@ setup(
             'cubic_doggo_mujoco_read_urdf = my_robot_commander_py.cubic_doggo_mujoco_read_urdf:main',
             'cubic_doggo_mujoco_bridge    = my_robot_commander_py.cubic_doggo_mujoco_bridge:main',
             'cubic_doggo_mujoco_stand     = my_robot_commander_py.cubic_doggo_mujoco_stand:main',
+            'cubic_doggo_mujoco_walk      = my_robot_commander_py.cubic_doggo_mujoco_walk:main',
         ],
     },
 )

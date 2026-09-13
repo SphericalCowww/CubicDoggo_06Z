@@ -16,8 +16,8 @@ def main():
         joint_names.append('servo1_servo1_padding_'+leg_prefix)
         joint_names.append('servo2_servo2_padding_'+leg_prefix)
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
-    target_feet_standing = [
-        np.array([  0.096,  0.152, 0.15]), # FL
+    feet_stand_targets = [
+        np.array([  0.096,  0.152, 0.15]), # FL: x, y, z of end effector
         np.array([ -0.096,  0.152, 0.15]), # FR
         np.array([  0.096, -0.078, 0.15]), # BL
         np.array([ -0.096, -0.078, 0.15])  # BR
@@ -83,15 +83,15 @@ def main():
     pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
 
     pinocchio_leg_ids = [pinocchio_model.getFrameId('calfSphere_'+leg_prefix) for leg_prefix in leg_prefixes]
+    pinocchio_base_frame = pinocchio_data.oMf[pinocchio_model.getFrameId('base_link')]
     for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
         curr_position = pinocchio_data.oMf[leg_id].translation 
         print("world frame leg", leg_prefix, leg_id, ", curr_position =", curr_position)
-    oMbase = pinocchio_data.oMf[pinocchio_model.getFrameId('base_link')]
     for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
-        curr_position = oMbase.actInv(pinocchio_data.oMf[leg_id]).translation 
+        curr_position = pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation 
         print("base frame leg", leg_prefix, leg_id, ", curr_position =", curr_position)
-    pinocchio_joint_targets = solve_leg_ik(pinocchio_model, pinocchio_data, pinocchio_joint_inits,
-                                           pinocchio_leg_ids, target_feet_standing)
+    pinocchio_joint_targets = getLegIK(pinocchio_model, pinocchio_data, pinocchio_joint_inits,
+                                       pinocchio_leg_ids, feet_stand_targets)
 
     mujoco_ctrl_targets = []
     for joint_name in joint_names:
@@ -100,7 +100,7 @@ def main():
             pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
             mujoco_ctrl_targets.append(pinocchio_joint_targets[pinocchio_joint_idx])
     
-    print("target_feet_standing:",    target_feet_standing,    len(target_feet_standing))
+    print("feet_stand_targets:",      feet_stand_targets,      len(feet_stand_targets))
     print("pinocchio_joint_inits:",   pinocchio_joint_inits,   len(pinocchio_joint_inits))
     print("pinocchio_joint_targets:", pinocchio_joint_targets, len(pinocchio_joint_targets))
     print("mujoco_joint_inits:",      mujoco_data.qpos,        len(mujoco_data.qpos))
