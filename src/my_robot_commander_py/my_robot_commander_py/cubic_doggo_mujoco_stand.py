@@ -10,10 +10,7 @@ import pinocchio
 from ._GlobalFuncs import *
 #############################################################################################################################
 def solve_leg_ik(pinocchio_model, pinocchio_data, pinocchio_joint_inits, pinocchio_leg_ids, target_positions, 
-                 max_iter=100, eps=1e-4):
-    delta_time     = 0.1
-    damping_factor = 1e-6
-
+                 damping_factor=1e-6, delta_time=0.1, max_iter=100, eps=1e-4):
     joint_angle = pinocchio_joint_inits.copy()
     for _ in range(max_iter):
         pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, joint_angle)
@@ -50,10 +47,10 @@ def main():
         joint_names.append('servo2_servo2_padding_'+leg_prefix)
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
     target_feet_standing = [
-        np.array([ -0.096,  0.152, 0.083]), # FL
-        np.array([  0.096,  0.152, 0.083]), # FR
-        np.array([ -0.096, -0.078, 0.083]), # BL
-        np.array([  0.096, -0.078, 0.083])  # BR
+        np.array([  0.096,  0.152, 0.15]), # FL
+        np.array([ -0.096,  0.152, 0.15]), # FR
+        np.array([  0.096, -0.078, 0.15]), # BL
+        np.array([ -0.096, -0.078, 0.15])  # BR
     ]
 
     pkg_share_path = get_package_share_directory('my_robot_description')
@@ -102,8 +99,8 @@ def main():
     ################
     pinocchio_joint_inits = pinocchio.neutral(pinocchio_model)
     pinocchio_joint_inits[ :3] = copy.deepcopy(mujoco_data.qpos[ :3])
-    pinocchio_joint_inits[3:6] = copy.deepcopy(mujoco_data.qpos[4:7])
-    pinocchio_joint_inits[  6] = copy.deepcopy(mujoco_data.qpos[3])
+    #pinocchio_joint_inits[3:6] = copy.deepcopy(mujoco_data.qpos[4:7])
+    #pinocchio_joint_inits[  6] = copy.deepcopy(mujoco_data.qpos[3])
     for joint_name in joint_names:
         mujoco_joint_id    = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
         pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
@@ -112,13 +109,17 @@ def main():
             pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
             pinocchio_joint_inits[pinocchio_joint_idx] = copy.deepcopy(mujoco_data.qpos[mujoco_joint_idx])
             print("joint", joint_name, mujoco_joint_id, mujoco_joint_idx, pinocchio_joint_id, pinocchio_joint_idx)
-
-    pinocchio_leg_ids = [pinocchio_model.getFrameId('calfSphere_'+leg_prefix) for leg_prefix in leg_prefixes]
     pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, pinocchio_joint_inits)
     pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
+
+    pinocchio_leg_ids = [pinocchio_model.getFrameId('calfSphere_'+leg_prefix) for leg_prefix in leg_prefixes]
     for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
-        curr_position = pinocchio_data.oMf[leg_id].translation
-        print("leg", leg_prefix, leg_id, ", curr_position =", curr_position)
+        curr_position = pinocchio_data.oMf[leg_id].translation 
+        print("world frame leg", leg_prefix, leg_id, ", curr_position =", curr_position)
+    oMbase = pinocchio_data.oMf[pinocchio_model.getFrameId('base_link')]
+    for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
+        curr_position = oMbase.actInv(pinocchio_data.oMf[leg_id]).translation 
+        print("base frame leg", leg_prefix, leg_id, ", curr_position =", curr_position)
     pinocchio_joint_targets = solve_leg_ik(pinocchio_model, pinocchio_data, pinocchio_joint_inits,
                                            pinocchio_leg_ids, target_feet_standing)
 
@@ -129,16 +130,18 @@ def main():
             pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
             mujoco_ctrl_targets.append(pinocchio_joint_targets[pinocchio_joint_idx])
     
-    print("pinocchio_joint_inits:",   pinocchio_joint_inits, len(pinocchio_joint_inits))
+    print("target_feet_standing:",    target_feet_standing,    len(target_feet_standing))
+    print("pinocchio_joint_inits:",   pinocchio_joint_inits,   len(pinocchio_joint_inits))
     print("pinocchio_joint_targets:", pinocchio_joint_targets, len(pinocchio_joint_targets))
-    print("mujoco_joint_inits:",      mujoco_data.qpos, len(mujoco_data.qpos))
-    print("mujoco_ctrl_targets:",    mujoco_ctrl_targets, len(mujoco_ctrl_targets))
+    print("mujoco_joint_inits:",      mujoco_data.qpos,        len(mujoco_data.qpos))
+    print("mujoco_ctrl_targets:",     mujoco_ctrl_targets,     len(mujoco_ctrl_targets))
     ################
+    action_delay_time = 1.0         #s
     with mujoco.viewer.launch_passive(mujoco_model, mujoco_data) as viewer:
         viewer.opt.geomgroup[0] = 0
         while viewer.is_running():
             step_start = time.time()
-            if mujoco_data.time > 1.0:
+            if mujoco_data.time > action_delay_time:
                 mujoco_data.ctrl[:] = mujoco_ctrl_targets
 
             mujoco.mj_step(mujoco_model, mujoco_data)
