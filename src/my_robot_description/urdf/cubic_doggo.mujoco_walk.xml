@@ -1,0 +1,114 @@
+<!-- ================================================================================================================================== -->
+<mujoco model="scene_doggo">
+    <compiler angle="radian" coordinate="local" inertiafromgeom="false" autolimits="true"/>
+    <option iterations="100" tolerance="1e-10" solver="Newton" gravity="0 0 -9.81">
+        <flag contact="enable" energy="enable"/>
+    </option>
+    <default>
+        <geom contype="1" conaffinity="1" friction="0.4 0.005 0.0001" solref="0.02 1" solimp="0.9 0.95 0.001"/>
+        <joint damping="0.1" armature="0.01" frictionloss="0.05" ref="0.0"/>
+        <default class="foot_friction">
+            <geom friction="4.0 0.005 0.0001" 
+                  solref="0.01 1" 
+                  solimp="0.9 0.99 0.001" 
+                  margin="0.001" 
+                  rgba="0.8 0.1 0.1 1"/>
+        </default>
+    </default>
+    <visual>
+        <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1"/>
+    </visual>
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
+        <texture name="grass"  type="2d" file="$MY_ROBOT_DESCRIPTION_PATH/world/forest_floor.png" width="512" height="512"/>
+        <texture name="forest" type="2d" file="$MY_ROBOT_DESCRIPTION_PATH/world/forest.png" width="1024" height="512"/>
+        <texture type="2d" name="grid" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 .15 .2" width="512" height="512"/>
+        <material name="grass_mat"  texture="grass"  texrepeat="5 5" reflectance="0"/>
+        <material name="forest_mat" texture="forest" texrepeat="2 1"   reflectance="0"/>
+    </asset>
+<!-- ================================================================================================================================== -->
+    <worldbody>
+        <light pos="0 -0.2 0.8" dir="0.5 0 -1" attenuation="0.2 0.2 0.2" castshadow="true"
+               diffuse="0.45 0.50 0.40" ambient="0.20 0.25 0.18" specular="0.03 0.03 0.03"/>
+        <geom name="floor" type="plane" size="3 3 0.1" material="grass_mat" friction="2.0 0.005 0.0001" 
+              contype="1" conaffinity="1" group="2"/>
+        <geom name="forest_wall_right" type="plane" size="3.0 0.75 0.3" pos="3 0 0.75" euler="1.5708 -1.5708 0" material="forest_mat"
+              group="2"/>
+        <geom name="forest_wall_front" type="plane" size="3.0 0.75 0.3" pos="0 3 0.75" euler="1.5708 0 0" material="forest_mat"  
+              contype="0" conaffinity="0"  group="2"/>
+        <geom name="slope" type="box" size="4.0 4.0 4.0" friction="2.0 0.005 0.0001" rgba="0.3 0.3 0.3 1"
+              pos="0.8 0 -4.0" euler="0.03 -0.10 0.03" group="1"/>
+        <body name="robot_root" pos="0 0 0">
+            <freejoint name="root"/>
+            <inertial mass="0.001" pos="0 0 0" diaginertia="0.0001 0.0001 0.0001"/>     <!--to avoid 0 mass crash-->
+            <include file="cubic_doggo.mujoco.urdf"/>
+            <site name="imu_site" size="0.01" rgba="0 0 1 1" 
+                  pos="0.0 0.0475 -0.002" euler="3.14 0 3.14"/>
+        </body>
+    </worldbody>
+    <keyframe>
+        <key name="initial_condition" qpos="0 0 0.15  0 0 1 0  3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14
+                                                               3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14" 
+                                      ctrl="                   3.14 2.54 4.14       3.14 3.74 2.14
+                                                               3.14 2.54 4.14       3.14 3.74 2.14"/>
+    </keyframe>
+    <equality>
+        <joint joint1="servo3_calfFeet_FL" joint2="servo3_calfJoint_FL" polycoef="0 1 0 0 0"/>
+        <joint joint1="servo3_calfFeet_FR" joint2="servo3_calfJoint_FR" polycoef="0 1 0 0 0"/>
+        <joint joint1="servo3_calfFeet_BL" joint2="servo3_calfJoint_BL" polycoef="0 1 0 0 0"/>
+        <joint joint1="servo3_calfFeet_BR" joint2="servo3_calfJoint_BR" polycoef="0 1 0 0 0"/>
+    </equality>
+    <contact>
+        <exclude body1="calfFeet_FL" body2="calfJoint_FL"/>
+        <exclude body1="calfFeet_FR" body2="calfJoint_FR"/>
+        <exclude body1="calfFeet_BL" body2="calfJoint_BL"/>
+        <exclude body1="calfFeet_BR" body2="calfJoint_BR"/>
+    </contact>
+    <actuator>
+        <position name="servo1_servo1_padding_FL" joint="servo1_servo1_padding_FL" 
+                  ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
+                  kp="50" kv="5"/> 
+        <position name="servo2_servo2_padding_FL" joint="servo2_servo2_padding_FL" 
+                  ctrlrange="1.57 3.67" forcerange="-1.4 1.4"
+                  kp="50" kv="5"/>
+        <position name="servo3_calfFeet_FL" joint="servo3_calfFeet_FL" 
+                  ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
+                  kp="30" kv="8"/>
+
+        <position name="servo1_servo1_padding_FR" joint="servo1_servo1_padding_FR" 
+                  ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
+                  kp="50" kv="5"/>
+        <position name="servo2_servo2_padding_FR" joint="servo2_servo2_padding_FR" 
+                  ctrlrange="2.62 4.71" forcerange="-1.4 1.4"
+                  kp="50" kv="5"/>
+        <position name="servo3_calfFeet_FR" joint="servo3_calfFeet_FR" 
+                  ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
+                  kp="30" kv="8"/>
+
+        <position name="servo1_servo1_padding_BL" joint="servo1_servo1_padding_BL" 
+                  ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
+                  kp="50" kv="5"/>
+        <position name="servo2_servo2_padding_BL" joint="servo2_servo2_padding_BL" 
+                  ctrlrange="1.57 3.67" forcerange="-1.4 1.4"
+                  kp="50" kv="5"/>
+        <position name="servo3_calfFeet_BL" joint="servo3_calfFeet_BL" 
+                  ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
+                  kp="30" kv="8"/>
+
+        <position name="servo1_servo1_padding_BR" joint="servo1_servo1_padding_BR" 
+                  ctrlrange="2.09 4.18" forcerange="-1.4 1.4"
+                  kp="50" kv="5"/>
+        <position name="servo2_servo2_padding_BR" joint="servo2_servo2_padding_BR" 
+                  ctrlrange="2.62 4.71" forcerange="-1.4 1.4"
+                  kp="50" kv="5"/>
+        <position name="servo3_calfFeet_BR" joint="servo3_calfFeet_BR" 
+                  ctrlrange="1.96 4.32" forcerange="-1.4 1.4"
+                  kp="30" kv="8"/>
+    </actuator>
+    <sensor>
+        <accelerometer name="accel" site="imu_site"/>
+        <gyro          name="gyro"  site="imu_site"/>
+        <framequat     name="quat"  objtype="site" objname="imu_site"/>
+    </sensor>
+</mujoco>
+<!-- ================================================================================================================================== -->
