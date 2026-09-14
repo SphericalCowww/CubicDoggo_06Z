@@ -135,21 +135,19 @@ def main():
             pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
             mujoco_ctrl_targets.append(pinocchio_joint_targets[pinocchio_joint_idx])
     
-
     #########################################################################################################################
     text_update_time   = 0.1                         # s
     action_update_time = 3.0                         # s
-    action_delay_time  = 1.0                         # s
+    action_delay_time  = 3.0                         # s
 
     delta_t = mujoco_model.opt.timestep
     swing_fraction = 0.5
     gait_frequency = 1.5                            # Hz
     lift, x_shift, y_shift = 0.03, 0.0, -0.007      # m
-    x_stride_range, y_stride_range = [-0.03, 0.01], [0.0, 0.04]
+    x_stride_range, y_stride_range = [-0.03, 0.03], [0.0, 0.04]
     #########################################################################################################################
 
-
-    last_text_update = 0.0
+    last_text_update   = 0.0
     last_action_update = 0.0
     is_standing = False
     gait_phase, x_stride, y_stride = 0.0, 0.0, 0.0
