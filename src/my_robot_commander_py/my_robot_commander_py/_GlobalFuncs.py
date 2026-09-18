@@ -50,6 +50,50 @@ def getLegIK(pinocchio_model, pinocchio_data, pinocchio_joint_inits, pinocchio_l
     
         joint_angle = pinocchio.integrate(pinocchio_model, joint_angle, joint_velocity*delta_time)
     return joint_angle
+def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_stride, y_stride, x_shift, y_shift,
+                           phase_offsets=[0.00, 0.50, 0.75, 0.25]):          # FL, FR, BL, BR
+    target_feet = []
+    for leg_idx in range(len(home_positions)):
+        target_x = home_positions[leg_idx][0]
+        target_y = home_positions[leg_idx][1]
+        target_z = home_positions[leg_idx][2]
+        
+        is_group_a       = (leg_idx == 0 or leg_idx == 3)
+        is_group_b       = (leg_idx == 1 or leg_idx == 2)
+        is_group_backLeg = (leg_idx == 2 or leg_idx == 3)
+        
+        local_phase = copy.deepcopy(gait_phase)
+        if swing_fraction <= 0.25:
+            local_phase += phase_offsets[leg_idx]
+        elif is_group_b:
+            local_phase += 0.5
+        if local_phase >= 1.0:
+            local_phase -= 1.0
+
+        x_offset, y_offset, z_offset = 0.0, 0.0, 0.0
+        if local_phase < swing_fraction:
+            swing_progress = local_phase/swing_fraction
+            z_offset = lift*np.sin(swing_progress*np.pi)
+            if swing_fraction >= 0.5:
+                x_offset = -x_stride + 2.0*x_stride*swing_progress
+                y_offset = -y_stride + 2.0*y_stride*swing_progress
+            else:
+                x_offset = -x_stride*np.cos(swing_progress*np.pi)
+                y_offset = -y_stride*np.cos(swing_progress*np.pi)
+        else:
+            stance_progress = (local_phase - swing_fraction)/(1.0 - swing_fraction)
+            z_offset = 0.0
+            x_offset = x_stride - 2.0*x_stride*stance_progress
+            y_offset = y_stride - 2.0*y_stride*stance_progress
+        if is_group_backLeg:
+            target_x -= (x_offset + x_shift)
+        else:
+            target_x += (x_offset + x_shift)
+            
+        target_y += (y_offset + y_shift)
+        target_z -= z_offset
+        target_feet.append(np.array([target_x, target_y, target_z]))
+    return target_feet
 #############################################################################################################################
 
 
