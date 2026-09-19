@@ -82,6 +82,8 @@ Halfway through, realized MuJoCo is the modern way for robot simulation in pytho
 
 ## MuJoCo
 
+MuJoCo is a physics simulator like Gazebo,
+
     cd CubicDoggo_06Z/
     cd ..                                                                # do NOT create the CubicDoggo_06Z_env/ inside CubicDoggo_06Z/, it will mess up colcon build
     python3 -m venv CubicDoggo_06Z_env/
@@ -91,8 +93,8 @@ Halfway through, realized MuJoCo is the modern way for robot simulation in pytho
     pip install --upgrade pip 
     pip install catkin_pkg empy lark
     pip install jinja2 pyyaml typeguard setuptools wheel
-    pip install mujoco torch gymnasium stable-baselines3 pin             # pin for pinocchio
-    python3 -c "import torch; import pinocchio; import mujoco; import stable_baselines3; print('Installation Successful')"
+    pip install mujoco pin gymnasium torch stable-baselines3             # pin for pinocchio
+    python3 -c "import mujoco; import pinocchio; import gymnasium; import torch; import stable_baselines3; print('Installation Successful')"
     cd CubicDoggo_06Z/
     rm -r install/ build/ log/
     colcon build
@@ -127,6 +129,8 @@ Using the same ROS2 commander as for Gazebo.
 
 ### Launch MuJoCo with Pinocchio
 
+Pinocchio is used as an IK solver to generate a predefined walk gait for later imitation learning,
+
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
@@ -134,9 +138,18 @@ Using the same ROS2 commander as for Gazebo.
     ros2 run my_robot_commander_py cubic_doggo_mujoco_stand
     ros2 run my_robot_commander_py cubic_doggo_mujoco_walk
 
+### Reinforcement learning with Gymnasium and PPO from stable-baselines3
+
+    cd CubicDoggo_06Z/
+    source ../CubicDoggo_06Z_env/bin/activate
+    colcon build --cmake-clean-first
+    source install/setup.bash
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_stand_ppo
+
 ## References:
 
-- CFD Intech, FreeCAD Tutorial | Exercise 6: How to Calculate Moment of Inertia of Model and Paste to Spreadsheet (<a href="https://www.youtube.com/watch?v=h6S0lKXxD3s">YouTube</a>) 
+- CFD Intech, FreeCAD Tutorial | Exercise 6: How to Calculate Moment of Inertia of Model and Paste to Spreadsheet (<a href="https://www.youtube.com/watch?v=h6S0lKXxD3s">YouTube</a>)
+- Edan Meyer | Proximal Policy Optimization (PPO) Explained ([YouTube](https://www.youtube.com/watch?v=HrapVFNBN64))
 
 ## Acknowledgements
 
