@@ -5,9 +5,135 @@ import numpy as np
 
 import xacro
 import mujoco, mujoco.viewer
-import pinocchio
+import gymnasium as gym
+from gymnasium import spaces
+from stable_baselines3 import PPO
+from stable_baselines3.common.env_util import make_vec_env
 
 from ._GlobalFuncs import *
+#############################################################################################################################
+class CubicDoggoEnv(gym.Env):
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
+    def __init__(self, mujoco_model, mujoco_data, pinocchio_model, pinocchio_data, leg_prefixes, joint_names, 
+                 render_mode=None):
+        super().__init__()
+        self.mujoco_model    = mujoco_model
+        self.mujoco_data     = mujoco_data
+        self.pinocchio_model = pinocchio_model
+        self.pinocchio_data  = pinocchio_data
+        self.leg_prefixes = leg_prefixes
+        self.joint_names     = joint_names
+        self.render_mode     = render_mode
+       
+        self.pinocchio_leg_ids = [self.pinocchio_model.getFrameId('calfSphere_'+leg_prefix) 
+                                  for leg_prefix in self.leg_prefixes]
+        self.pinocchio_base_id = self.pinocchio_model.getFrameId('base_link')
+        self.ray_geomid        = np.zeros(1, dtype=np.int32)
+        self.ray_direction     = np.array([0.0, 0.0, -1.0], dtype=np.float64)
+ 
+        self.num_actions = len(self.joint_names)
+        dim_observations = 12 + 12 + 3 + 2 + 1     # joint_pos (12), joint_vel (12), gyro (3), roll/pitch (2), height (1)
+        self.action_space      = spaces.Box(low=-1.0,    high=1.0,    shape=(self.num_actions,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(obs_dim,),          dtype=np.float32)
+
+        self.last_action = None
+    def _get_obs(self):
+        joint_pos = self.data.qpos[-12:]
+        joint_vel = self.data.qvel[-12:]
+        imu_gyro  = self.data.sensor('gyro').data
+
+        quat_data  = mujoco_data.sensor('quat').data
+        imu_roll_rad, imu_pitch_rad, _ = quat2euler(*quat_data)
+
+        '''
+        feet_currs = []
+        pinocchio_joint_currs = pinocchio.neutral(pinocchio_model)
+        for joint_name in joint_names:
+            mujoco_joint_id    = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
+            pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
+            if mujoco_joint_id != -1 and pinocchio_joint_id < len(pinocchio_model.joints):
+                mujoco_joint_idx    = mujoco_model.jnt_qposadr[mujoco_joint_id]
+                pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
+                pinocchio_joint_currs[pinocchio_joint_idx] = copy.deepcopy(mujoco_data.qpos[mujoco_joint_idx])
+        pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, pinocchio_joint_currs)
+        pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
+        pinocchio_base_frame = pinocchio_data.oMf[pinocchio_base_id]
+        for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
+            feet_currs.append(pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation)
+        kinematic_height  = np.average([feet_curr[2] for feet_curr in feet_currs])
+        '''
+
+        mujoco_base_id   = mujoco_model.body('robot_root').id
+        mujoco_base_curr = mujoco_data.xpos[mujoco_base_id]
+        rayCast_distance = mujoco.mj_ray(m=self.mujoco_model, d=self.mujoco_data, pnt=mujoco_base_curr, vec=[0.0, 0.0, -1.0],
+                                         geomgroup=None, flg_static=1, bodyexclude=mujoco_base_id, geomid=self.ray_geomid)
+        privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
+
+        return np.concatenate([joint_pos, joint_vel, imu_gyro, 
+                               [imu_roll_rad, imu_pitch_rad, privileged_height]]).astype(np.float32)
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        mujoco.mj_resetData(self.mujoco_model, self.mujoco_data)
+        if self.mujoco_model.nkey > 0:
+            mujoco.mj_resetDataKeyframe(self.mujoco_model, self.mujoco_data, 0)
+
+
+        ############################################################################## variation in conditions
+
+        self.data.qpos[-12:] += self.np_random.uniform(-0.05, 0.05, size=12)
+
+        ##############################################################################
+
+
+        mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
+        return self._get_obs(), {}
+    def step(self, action):
+        ############################################################################## variable targets
+        
+        target_pitch, target_roll = 0.0, 0.0
+        target_height             = 0.15
+
+        reward_exp_factor         = 0.01
+        reward_pitch_roll_scale   = 1.4
+        reward_height_scale       = 2.0
+        penalty_joint_vel_scale   = 0.001
+        penalty_action_scale      = 0.01 
+        penalty_action_rate_scale = 0.05
+        ##############################################################################
+
+        default_pose = np.zeros(len(self.joint_names))
+        target_ctrl  = default_pose + action*self.action_scale
+        self.data.ctrl[:] = target_ctrl
+        
+        n_substeps = 4
+        for _ in range(n_substeps):
+            mujoco.mj_step(self.mujoco_model, self.mujoco_data)
+
+        observations = self._get_obs()
+        data_pos  = observations[0:12]
+        data_vel  = observations[12:24]
+        data_giro = observations[24:27]
+        data_pitch, data_roll, data_height = *observations[27:]
+
+        residual_orientation = -np.square(data_pitch - target_pitch) - np.square(data_roll - target_roll)       
+        residual_height      = -np.square(data_height - target_height)
+
+        reward_orientation  = np.exp(-residual_orientation /(reward_exp_factor*np.square(2)))
+        reward_height       = np.exp(-residual_height      / reward_exp_factor)
+        penalty_action      = -0.01*np.sum(np.square(action))
+        penalty_action_rate = 0
+        if self.last_action is not None:
+            penalty_action_rate = -0.05*np.sum(np.square(action - self.last_action))
+        penalty_joint_vel = -0.001 * np.sum(np.square(qvel_12))
+
+        reward  = reward_pitch_roll_scale*reward_orientation + reward_height_scale*reward_height
+        reward += penalty_joint_vel_scale*penalty_joint_vel
+        reward +=  penalty_action_scale*penalty_action + penalty_action_rate_scale*penalty_action_rate
+        terminated = bool((0.6 < abs(data_pitch)) or (0.6 < abs(data_roll)) or (data_height < 0.08) or (0.18 < data_height))
+        truncated  = False
+
+        self.last_action = action.copy()
+        return observations, reward, terminated, truncated, {}
 #############################################################################################################################
 def main():
     leg_prefixes = ['FL', 'FR', 'BL', 'BR']
@@ -16,16 +142,10 @@ def main():
         joint_names.append('servo1_servo1_padding_'+leg_prefix)
         joint_names.append('servo2_servo2_padding_'+leg_prefix)
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
-    feet_stand_targets = [
-        np.array([  0.096,  0.152, 0.15]), # FL
-        np.array([ -0.096,  0.152, 0.15]), # FR
-        np.array([  0.096, -0.078, 0.15]), # BL
-        np.array([ -0.096, -0.078, 0.15])  # BR
-    ]
 
     pkg_share_path = get_package_share_directory('my_robot_description')
     xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
-    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco_walk.xml')
+    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco_stand.xml')
     usdf_file      =                                      'cubic_doggo.mujoco.urdf'
 
     xacro_raw = xacro.process_file(xacro_path)
@@ -66,104 +186,31 @@ def main():
         pinocchio_model = pinocchio.buildModelFromUrdf(tempfileObj.name, pinocchio.JointModelFreeFlyer())
         pinocchio_data  = pinocchio_model.createData()
 
+    ppo_env = make_vec_env(CubicDoggoEnv(mujoco_model, mujoco_data, pinocchio_model, pinocchio_data,
+                                         leg_prefixes, joint_names), n_envs=8)
+    ppo_model = PPO("MlpPolicy", 
+                    ppo_env,
+                    verbose=1,
+                    learning_rate=3e-4,
+                    n_steps=2048,
+                    batch_size=128,
+                    n_epochs=10,
+                    gamma=0.99,
+                    gae_lambda=0.95,
+                    tensorboard_log=pkg_share_path.replace("src/my_robot_description/urdf", "")+
+                                    "/ppo_tensorboards/")
     ################
-    pinocchio_joint_inits = pinocchio.neutral(pinocchio_model)
-    for joint_name in joint_names:
-        mujoco_joint_id    = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
-        pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
-        if mujoco_joint_id != -1 and pinocchio_joint_id < len(pinocchio_model.joints):
-            mujoco_joint_idx    = mujoco_model.jnt_qposadr[mujoco_joint_id]
-            pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
-            pinocchio_joint_inits[pinocchio_joint_idx] = copy.deepcopy(mujoco_data.qpos[mujoco_joint_idx])
-    pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, pinocchio_joint_inits)
-    pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
-
-    pinocchio_leg_ids = [pinocchio_model.getFrameId('calfSphere_'+leg_prefix) for leg_prefix in leg_prefixes]
-    pinocchio_base_id = pinocchio_model.getFrameId('base_link')
-    pinocchio_joint_targets = getLegIK(pinocchio_model, pinocchio_data, pinocchio_joint_inits,
-                                       pinocchio_leg_ids, feet_stand_targets)
-
-    mujoco_ctrl_targets = []
-    for joint_name in joint_names:
-        pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
-        if pinocchio_joint_id < len(pinocchio_model.joints):
-            pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
-            mujoco_ctrl_targets.append(pinocchio_joint_targets[pinocchio_joint_idx])
+    
+    
+    print("cubic_doggo_mujoco_stand_ppo(): start training...")
+    ppo_model.learn(total_timesteps=1_000_000)
+    ppo_model.save("ppo_cubic_doggo_stand")
+    print("cubic_doggo_mujoco_stand_ppo(): model saved:")
     
 
-    #########################################################################################################################
-    text_update_time   = 0.1                         # s
-    action_update_time = 3.0                         # s
-    action_delay_time  = 1.0                         # s
-
-    delta_t = mujoco_model.opt.timestep
-    swing_fraction = 0.5
-    gait_frequency = 1.5                            # Hz
-    lift, x_shift, y_shift = 0.03, 0.0, -0.007      # m
-    x_stride_range, y_stride_range = [-0.03, 0.01], [0.0, 0.04]
-    #########################################################################################################################
-
-
-    last_text_update = 0.0
-    last_action_update = 0.0
-    is_standing = False
-    gait_phase, x_stride, y_stride = 0.0, 0.0, 0.0
-    ray_geomid    = np.zeros(1, dtype=np.int32)
-    ray_direction = np.array([0.0, 0.0, -1.0], dtype=np.float64)
-    with mujoco.viewer.launch_passive(mujoco_model, mujoco_data) as viewer:
-        viewer.opt.geomgroup[0] = 0
-        while viewer.is_running():
-            step_start = time.time()
-
-            feet_currs = []
-            pinocchio_joint_currs = pinocchio.neutral(pinocchio_model)
-            for joint_name in joint_names:
-                mujoco_joint_id    = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
-                pinocchio_joint_id = pinocchio_model.getJointId(joint_name)
-                if mujoco_joint_id != -1 and pinocchio_joint_id < len(pinocchio_model.joints):
-                    mujoco_joint_idx    = mujoco_model.jnt_qposadr[mujoco_joint_id]
-                    pinocchio_joint_idx = pinocchio_model.joints[pinocchio_joint_id].idx_q
-                    pinocchio_joint_currs[pinocchio_joint_idx] = copy.deepcopy(mujoco_data.qpos[mujoco_joint_idx])
-            pinocchio.forwardKinematics(pinocchio_model, pinocchio_data, pinocchio_joint_currs)
-            pinocchio.updateFramePlacements(pinocchio_model, pinocchio_data)
-            pinocchio_base_frame = pinocchio_data.oMf[pinocchio_base_id]
-            for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
-                feet_currs.append(pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation)
-            kinematic_height  = np.average([feet_curr[2] for feet_curr in feet_currs])
-
-
-            ###########################################
-            mujoco_data.ctrl[:] = mujoco_ctrl_targets
-            mujoco.mj_step(mujoco_model, mujoco_data)
-            ###########################################
-
-           
-            mujoco_base_id   = mujoco_model.body('robot_root').id
-            mujoco_base_curr = mujoco_data.xpos[mujoco_base_id] 
-            rayCast_distance = mujoco.mj_ray(m=mujoco_model, d=mujoco_data, pnt=mujoco_base_curr, vec=ray_direction,
-                                             geomgroup=None, flg_static=1, bodyexclude=mujoco_base_id, geomid=ray_geomid)
-            privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
-            
-            accel_data = mujoco_data.sensor('accel').data
-            gyro_data  = mujoco_data.sensor('gyro').data
-            quat_data  = mujoco_data.sensor('quat').data
-            roll_rad, pitch_rad, yaw_rad = quat2euler(*quat_data)
-            roll_deg  = math.degrees(roll_rad)
-            pitch_deg = math.degrees(pitch_rad)
-            yaw_deg   = math.degrees(yaw_rad)
-            if (mujoco_data.time - last_text_update) > text_update_time:
-                telemetry_str  = f"X Stride:{x_stride:7.3f}m | Y Stride:{y_stride:7.3f}m | "
-                telemetry_str += f"Roll:{roll_deg:4.1f}deg | Pitch:{pitch_deg:4.1f}deg | Yaw:{yaw_deg:4.1f}deg\n"
-                telemetry_str += f"Privileged Height:{privileged_height:8.4f}m | Kinematic Height:{kinematic_height:8.4f}m"
-                viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_100, mujoco.mjtGridPos.mjGRID_TOPRIGHT, 
-                                  "TELEMETRY", telemetry_str))
-                last_text_update = copy.deepcopy(mujoco_data.time)
-                print(telemetry_str.replace('\n', ' | '), end='\r')
-
-            viewer.sync()
-            time_until_next_step = delta_t - (time.time() - step_start)
-            if time_until_next_step > 0:
-                time.sleep(time_until_next_step)
 #############################################################################################################################
 if __name__ == '__main__': main()
+
+
+
 

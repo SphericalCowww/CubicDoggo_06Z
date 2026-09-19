@@ -1,4 +1,4 @@
-import os, sys, pathlib, time, re, glob, math
+import os, sys, pathlib, time, re, glob, math, copy
 import numpy as np
 import pinocchio
 
@@ -95,7 +95,8 @@ def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_s
         target_feet.append(np.array([target_x, target_y, target_z]))
     return target_feet
 #############################################################################################################################
-
-
+def main(): pass
+if __name__ == '__main__': main()
+ 
 
 

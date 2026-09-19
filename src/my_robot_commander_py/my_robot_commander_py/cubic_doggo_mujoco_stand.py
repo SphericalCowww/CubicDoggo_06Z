@@ -93,21 +93,14 @@ def main():
 
     #########################################################################################################################
     text_update_time   = 0.1                         # s
-    action_update_time = 3.0                         # s
     action_delay_time  = 1.0                         # s
-
     delta_t = mujoco_model.opt.timestep
-    swing_fraction = 0.5
-    gait_frequency = 1.5                            # Hz
-    lift, x_shift, y_shift = 0.03, 0.0, -0.007      # m
-    x_stride_range, y_stride_range = [-0.03, 0.01], [0.0, 0.04]
     #########################################################################################################################
 
 
     last_text_update = 0.0
     last_action_update = 0.0
     is_standing = False
-    gait_phase, x_stride, y_stride = 0.0, 0.0, 0.0
     ray_geomid    = np.zeros(1, dtype=np.int32)
     ray_direction = np.array([0.0, 0.0, -1.0], dtype=np.float64)
     with mujoco.viewer.launch_passive(mujoco_model, mujoco_data) as viewer:
@@ -133,7 +126,8 @@ def main():
 
 
             ###########################################
-            mujoco_data.ctrl[:] = mujoco_ctrl_targets
+            if mujoco_data.time > action_delay_time:
+                mujoco_data.ctrl[:] = mujoco_ctrl_targets
             mujoco.mj_step(mujoco_model, mujoco_data)
             ###########################################
 
