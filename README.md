@@ -148,7 +148,8 @@ Pinocchio is used as an IK solver to generate a predefined walk gait for later i
 
 ## References:
 
-- CFD Intech, FreeCAD Tutorial | Exercise 6: How to Calculate Moment of Inertia of Model and Paste to Spreadsheet (<a href="https://www.youtube.com/watch?v=h6S0lKXxD3s">YouTube</a>) 
+- CFD Intech, FreeCAD Tutorial | Exercise 6: How to Calculate Moment of Inertia of Model and Paste to Spreadsheet (<a href="https://www.youtube.com/watch?v=h6S0lKXxD3s">YouTube</a>)
+- Edan Meyer | Proximal Policy Optimization (PPO) Explained ([YouTube](https://www.youtube.com/watch?v=HrapVFNBN64))
 
 ## Acknowledgements
 
