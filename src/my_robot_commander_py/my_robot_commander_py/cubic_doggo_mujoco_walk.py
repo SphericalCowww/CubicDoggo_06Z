@@ -127,7 +127,7 @@ def main():
             pinocchio_base_frame = pinocchio_data.oMf[pinocchio_base_id]
             for leg_prefix, leg_id in zip(leg_prefixes, pinocchio_leg_ids):
                 feet_currs.append(pinocchio_base_frame.actInv(pinocchio_data.oMf[leg_id]).translation)
-            kinematic_height  = np.average([feet_curr[2] for feet_curr in feet_currs])
+            kinematic_height = np.average([feet_curr[2] for feet_curr in feet_currs])
 
             ###########################################
             if mujoco_data.time > action_delay_time:
