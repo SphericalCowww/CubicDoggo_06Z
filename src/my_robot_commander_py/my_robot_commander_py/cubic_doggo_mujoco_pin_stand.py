@@ -147,7 +147,7 @@ def main():
             yaw_deg   = math.degrees(yaw_rad)
             if (mujoco_data.time - last_text_update) > text_update_time:
                 telemetry_str  = f"Roll:{roll_deg:4.1f}deg | Pitch:{pitch_deg:4.1f}deg | Yaw:{yaw_deg:4.1f}deg\n"
-                telemetry_str += f"Privileged Height:{privileged_height:8.4f}m | Kinematic Height:{kinematic_height:8.4f}m"
+                telemetry_str += f"Privileged Height:{privileged_height:9.5f}m | Kinematic Height:{kinematic_height:9.5f}m"
                 viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_100, mujoco.mjtGridPos.mjGRID_TOPRIGHT, 
                                   "TELEMETRY", telemetry_str))
                 last_text_update = copy.deepcopy(mujoco_data.time)

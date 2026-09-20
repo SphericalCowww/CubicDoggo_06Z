@@ -9,7 +9,7 @@ from ._GlobalFuncs import *
 def main():
     pkg_share_path = get_package_share_directory('my_robot_description')
     xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
-    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.xml')
+    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml')
     usdf_file      =                                      'cubic_doggo.mujoco.urdf'
 
     xacro_raw = xacro.process_file(xacro_path)

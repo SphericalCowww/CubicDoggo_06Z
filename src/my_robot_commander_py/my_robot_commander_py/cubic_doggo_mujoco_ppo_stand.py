@@ -18,7 +18,10 @@ class CubicDoggoEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
     def __init__(self, render_mode=None):
         super().__init__()
-        self.render_mode = render_mode
+        self.render_mode      = render_mode
+        self.viewer           = None
+        self.text_update_time = 0.01     #s
+        self.last_text_update = 0.0
 
         self.leg_prefixes = ['FL', 'FR', 'BL', 'BR']
         self.joint_names = []
@@ -28,7 +31,7 @@ class CubicDoggoEnv(gym.Env):
             self.joint_names.append('servo3_calfFeet_'      +leg_prefix)
 
         xacro_path = os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.urdf.xacro')
-        mjcf_path  = os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco_stand.xml')
+        mjcf_path  = os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml')
         usdf_file  =                                      'cubic_doggo.mujoco.urdf'
 
         xacro_raw = xacro.process_file(xacro_path)
@@ -84,6 +87,7 @@ class CubicDoggoEnv(gym.Env):
         imu_gyro  = self.mujoco_data.sensor('gyro').data
         quat_data = self.mujoco_data.sensor('quat').data
         imu_roll_rad, imu_pitch_rad, _ = quat2euler(*quat_data)
+        imu_roll_deg, imu_pitch_deg    = math.degrees(imu_roll_rad), math.degrees(imu_pitch_rad)
 
         '''
         feet_currs = []
@@ -110,9 +114,10 @@ class CubicDoggoEnv(gym.Env):
         privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
 
         return np.concatenate([joint_pos, joint_vel, imu_gyro, 
-                               [imu_roll_rad, imu_pitch_rad, privileged_height]]).astype(np.float32)
+                               [imu_roll_deg, imu_pitch_deg, privileged_height]]).astype(np.float32)
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        self.last_text_update = 0.0
         mujoco.mj_resetData(self.mujoco_model, self.mujoco_data)
         if self.mujoco_model.nkey > 0:
             mujoco.mj_resetDataKeyframe(self.mujoco_model, self.mujoco_data, 0)
@@ -132,11 +137,11 @@ class CubicDoggoEnv(gym.Env):
         self.mujoco_data.ctrl[:] = target_ctrl
  
         ############################################################################## reward/penalty parameters
-        target_pitch, target_roll = 0.0, 0.0
+        target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.15
 
         reward_exp_factor         = 0.01
-        reward_pitch_roll_scale   = 1.4
+        reward_roll_pitch_scale   = 1.4
         reward_height_scale       = 2.0
         penalty_joint_vel_scale   = 0.001
         penalty_action_scale      = 0.01 
@@ -153,7 +158,7 @@ class CubicDoggoEnv(gym.Env):
         data_giro = observations[24:27]
         data_roll, data_pitch, data_height = observations[27:]
 
-        residual_orientation = -np.square(data_pitch - target_pitch) - np.square(data_roll - target_roll)       
+        residual_orientation = -np.square(data_roll - target_roll) - np.square(data_pitch - target_pitch)       
         residual_height      = -np.square(data_height - target_height)
 
         reward_orientation  = np.exp(-residual_orientation /(reward_exp_factor*np.square(2)))
@@ -164,19 +169,43 @@ class CubicDoggoEnv(gym.Env):
             penalty_action_rate = -np.sum(np.square(action - self.last_action))
         penalty_joint_vel = -np.sum(np.square(data_vel))
 
-        reward  = reward_pitch_roll_scale*reward_orientation + reward_height_scale*reward_height
+        reward  = reward_roll_pitch_scale*reward_orientation + reward_height_scale*reward_height
         reward += penalty_joint_vel_scale*penalty_joint_vel
         reward +=  penalty_action_scale*penalty_action + penalty_action_rate_scale*penalty_action_rate
-        terminated = bool((0.6 < abs(data_pitch)) or (0.6 < abs(data_roll)) or (data_height < 0.08) or (0.18 < data_height))
+        terminated = bool((1.0 < abs(data_roll)) or (1.0 < abs(data_pitch)) or (data_height < 0.15) or (0.16 < data_height))
         truncated  = False
-
         self.last_action = action.copy()
+  
+        if (self.mujoco_data.time - self.last_text_update) > self.text_update_time: 
+            telemetry_str  = f"Roll:{data_roll:9.5f}deg | Pitch:{data_pitch:9.5f}deg | Height:{data_height:9.5f}m | "
+            telemetry_str += f"Time:{self.mujoco_data.time:9.5f}s"
+            self.last_text_update = copy.deepcopy(self.mujoco_data.time)
+            print(telemetry_str)
+        if self.render_mode == "human":
+            if self.viewer is None:
+               self.viewer = mujoco.viewer.launch_passive(self.mujoco_model, self.mujoco_data)
+               self.last_text_update = 0.0
+            if (self.mujoco_data.time - self.last_text_update) > self.text_update_time:
+                self.viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_100, mujoco.mjtGridPos.mjGRID_TOPRIGHT,
+                                      "TELEMETRY", telemetry_str))
+            self.viewer.sync()
         return observations, reward, terminated, truncated, {}
+    def close(self):
+        if self.viewer is not None:
+            self.viewer.close()
+            self.viewer = None
 #############################################################################################################################
 def main():
-    ppo_env = make_vec_env(CubicDoggoEnv, n_envs=1)         #set to 1 for CPU
+    policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", 
+                                               "ppo_tensorboards/")
+    policy_model_name = "ppo_cubic_doggo_stand"
+    n_envs = min(os.cpu_count(), 16)
+    
+    #ppo_env = CubicDoggoEnv(render_mode="human")                #for visualization
+    ppo_env = make_vec_env(CubicDoggoEnv, n_envs=n_envs)
     ppo_model = PPO("MlpPolicy", 
                     ppo_env,
+                    device="cpu",
                     verbose=1,
                     learning_rate=3e-4,
                     n_steps=2048,
@@ -184,12 +213,12 @@ def main():
                     n_epochs=10,
                     gamma=0.99,
                     gae_lambda=0.95,
-                    tensorboard_log=(PKG_SHARE_PATH.replace("src/my_robot_description/urdf", "")+"/ppo_tensorboards/"))
+                    tensorboard_log=policy_model_path)
     
-    print("cubic_doggo_mujoco_stand_ppo(): start training...")
+    print("cubic_doggo_mujoco_stand_ppo(): start training, with "+str(n_envs)+" CPU cores...")
     ppo_model.learn(total_timesteps=1_000_000)
-    ppo_model.save("ppo_cubic_doggo_stand")
-    print("cubic_doggo_mujoco_stand_ppo(): model saved:")
+    ppo_model.save(policy_model_path+policy_model_name)
+    print("cubic_doggo_mujoco_stand_ppo(): model saved:", policy_model_path+policy_model_name+".zip")
     
 
 #############################################################################################################################
