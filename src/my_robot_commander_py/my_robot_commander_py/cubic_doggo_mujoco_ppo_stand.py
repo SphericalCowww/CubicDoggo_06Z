@@ -118,7 +118,7 @@ class CubicDoggoEnv(gym.Env):
             mujoco.mj_resetDataKeyframe(self.mujoco_model, self.mujoco_data, 0)
 
 
-        ############################################################################## variation in conditions
+        ############################################################################## initial state randomization
 
         self.mujoco_data.qpos[-12:] += self.np_random.uniform(-0.05, 0.05, size=12)
 
@@ -131,7 +131,7 @@ class CubicDoggoEnv(gym.Env):
         target_ctrl = self.initial_pose + action*self.action_scale
         self.mujoco_data.ctrl[:] = target_ctrl
  
-        ############################################################################## variable targets
+        ############################################################################## reward/penalty parameters
         target_pitch, target_roll = 0.0, 0.0
         target_height             = 0.15
 
@@ -151,7 +151,7 @@ class CubicDoggoEnv(gym.Env):
         data_pos  = observations[0:12]
         data_vel  = observations[12:24]
         data_giro = observations[24:27]
-        data_pitch, data_roll, data_height = observations[27:]
+        data_roll, data_pitch, data_height = observations[27:]
 
         residual_orientation = -np.square(data_pitch - target_pitch) - np.square(data_roll - target_roll)       
         residual_height      = -np.square(data_height - target_height)
@@ -174,7 +174,7 @@ class CubicDoggoEnv(gym.Env):
         return observations, reward, terminated, truncated, {}
 #############################################################################################################################
 def main():
-    ppo_env = make_vec_env(CubicDoggoEnv, n_envs=8)
+    ppo_env = make_vec_env(CubicDoggoEnv, n_envs=1)         #set to 1 for CPU
     ppo_model = PPO("MlpPolicy", 
                     ppo_env,
                     verbose=1,
