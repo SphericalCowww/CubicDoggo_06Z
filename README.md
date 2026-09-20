@@ -108,13 +108,13 @@ To have 1 leg for the MuJoCo test, run:
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
-    ros2 run my_robot_commander_py cubic_leg1_mujoco_read_urdf 
+    ros2 run my_robot_commander_py cubic_leg1_mujoco_init
     # toggle 1 for visual, and toggle 0 for collision
     # expand control on the right-hand side to change joint values
 
 To have the full robot with IMU as output, run:
 
-    ros2 run my_robot_commander_py cubic_doggo_mujoco_read_urdf 
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_init
 
 To launch with commander/controller:
     
@@ -135,8 +135,9 @@ Pinocchio is used as an IK solver to generate a predefined walk gait for later i
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
-    ros2 run my_robot_commander_py cubic_doggo_mujoco_stand
-    ros2 run my_robot_commander_py cubic_doggo_mujoco_walk
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_pin_stand_test
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_pin_walk
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_pin_stand
 
 ### Reinforcement learning with Gymnasium and PPO from stable-baselines3
 
@@ -144,7 +145,7 @@ Pinocchio is used as an IK solver to generate a predefined walk gait for later i
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
-    ros2 run my_robot_commander_py cubic_doggo_mujoco_stand_ppo
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand
 
 ## References:
 
