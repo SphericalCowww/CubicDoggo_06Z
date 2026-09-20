@@ -94,6 +94,7 @@ MuJoCo is a physics simulator like Gazebo,
     pip install catkin_pkg empy lark
     pip install jinja2 pyyaml typeguard setuptools wheel
     pip install mujoco pin gymnasium torch stable-baselines3 tensorboard            # pin for pinocchio
+    pip install --upgrade opencv-python
     python3 -c "import mujoco; import pinocchio; import gymnasium; import torch; import stable_baselines3; print('Installation Successful')"
     cd CubicDoggo_06Z/
     rm -r install/ build/ log/
@@ -139,13 +140,17 @@ Pinocchio is used as an IK solver to generate a predefined walk gait for later i
     ros2 run my_robot_commander_py cubic_doggo_mujoco_pin_walk
     ros2 run my_robot_commander_py cubic_doggo_mujoco_pin_stand
 
-### Reinforcement learning with Gymnasium and PPO from stable-baselines3
+### Reinforcement learning with Gymnasium and stable-baselines3
+
+Gymnasium sets up the environment for reinforcement learning, while stable-baselines3 provides the PPO optimization method for the reward/penalty terms from Gymnasium,
 
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
     ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand
+    tensorboard --logdir=ppo_tensorboards
+    # open in browser: http://localhost:6006
 
 ## References:
 
