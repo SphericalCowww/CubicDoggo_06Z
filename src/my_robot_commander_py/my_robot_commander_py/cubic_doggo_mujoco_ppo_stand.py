@@ -140,9 +140,10 @@ class CubicDoggoEnv(gym.Env):
         target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.15
 
-        reward_exp_factor         = 0.01
         reward_roll_pitch_scale   = 1.4
+        reward_roll_pitch_sigma   = 0.01
         reward_height_scale       = 2.0
+        reward_height_sigma       = 0.01
         penalty_joint_vel_scale   = 0.001
         penalty_action_scale      = 0.01 
         penalty_action_rate_scale = 0.05
@@ -158,20 +159,18 @@ class CubicDoggoEnv(gym.Env):
         data_giro = observations[24:27]
         data_roll, data_pitch, data_height = observations[27:]
 
-        residual_orientation = -np.square(data_roll - target_roll) - np.square(data_pitch - target_pitch)       
-        residual_height      = -np.square(data_height - target_height)
+        residual_orientation = np.square(data_roll - target_roll) + np.square(data_pitch - target_pitch)       
+        residual_height      = np.square(data_height - target_height)
 
-        reward_orientation  = np.exp(-residual_orientation /(reward_exp_factor*np.square(2)))
-        reward_height       = np.exp(-residual_height      / reward_exp_factor)
-        penalty_action      = -np.sum(np.square(action))
+        penalty_action      = np.sum(np.square(action))
         penalty_action_rate = 0
         if self.last_action is not None:
-            penalty_action_rate = -np.sum(np.square(action - self.last_action))
-        penalty_joint_vel = -np.sum(np.square(data_vel))
+            penalty_action_rate = np.sum(np.square(action - self.last_action))
 
-        reward  = reward_roll_pitch_scale*reward_orientation + reward_height_scale*reward_height
-        reward += penalty_joint_vel_scale*penalty_joint_vel
-        reward +=  penalty_action_scale*penalty_action + penalty_action_rate_scale*penalty_action_rate
+        reward  = reward_roll_pitch_scale*np.exp(-residual_orientation/reward_roll_pitch_sigma) 
+        reward += reward_height_scale    *np.exp(-residual_height     /reward_height_sigma)
+        reward -= penalty_joint_vel_scale*np.sum(np.square(data_vel))
+        reward -= penalty_action_scale*penalty_action + penalty_action_rate_scale*penalty_action_rate
         terminated = bool((1.0 < abs(data_roll)) or (1.0 < abs(data_pitch)) or (data_height < 0.15) or (0.16 < data_height))
         truncated  = False
         self.last_action = action.copy()
