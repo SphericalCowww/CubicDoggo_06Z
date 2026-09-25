@@ -106,6 +106,8 @@
                   kp="30" kv="8"/>
     </actuator>
     <sensor>
+        <velocimeter   name="linvel" site="imu_site"/>        
+
         <accelerometer name="accel" site="imu_site"/>
         <gyro          name="gyro"  site="imu_site"/>
         <framequat     name="quat"  objtype="site" objname="imu_site"/>
