@@ -20,7 +20,7 @@ class CubicDoggoEnv(gym.Env):
         super().__init__()
         self.render_mode      = render_mode
         self.viewer           = None
-        self.text_update_time = 0.01     #s
+        self.text_update_time = 0.001     #s
         self.last_text_update = 0.0
 
         self.leg_prefixes = ['FL', 'FR', 'BL', 'BR']
@@ -117,6 +117,8 @@ class CubicDoggoEnv(gym.Env):
                                [imu_roll_deg, imu_pitch_deg, privileged_height]]).astype(np.float32)
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        print('CubicDoggoEnv(): reset(): restarting robot...')
+        
         self.last_text_update = 0.0
         mujoco.mj_resetData(self.mujoco_model, self.mujoco_data)
         if self.mujoco_model.nkey > 0:
@@ -179,7 +181,7 @@ class CubicDoggoEnv(gym.Env):
             telemetry_str  = f"Roll:{data_roll:9.5f}deg | Pitch:{data_pitch:9.5f}deg | Height:{data_height:9.5f}m | "
             telemetry_str += f"Time:{self.mujoco_data.time:9.5f}s"
             self.last_text_update = copy.deepcopy(self.mujoco_data.time)
-            print(telemetry_str)
+            #print(telemetry_str)
         if self.render_mode == "human":
             if self.viewer is None:
                self.viewer = mujoco.viewer.launch_passive(self.mujoco_model, self.mujoco_data)
@@ -200,8 +202,8 @@ def main():
     policy_model_name = "ppo_cubic_doggo_stand"
     n_envs = min(os.cpu_count(), 16)
     
-    #ppo_env = CubicDoggoEnv(render_mode="human")                #for visualization
-    ppo_env = make_vec_env(CubicDoggoEnv, n_envs=n_envs)
+    ppo_env = CubicDoggoEnv(render_mode="human")                #for visualization
+    #ppo_env = make_vec_env(CubicDoggoEnv, n_envs=n_envs)
     ppo_model = PPO("MlpPolicy", 
                     ppo_env,
                     device="cpu",
