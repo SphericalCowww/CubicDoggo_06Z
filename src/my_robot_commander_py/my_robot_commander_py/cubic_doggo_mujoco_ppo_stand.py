@@ -92,14 +92,14 @@ class CubicDoggoEnv(gym.Env):
                                                       pinocchio_joint_q_idx, pinocchio_joint_v_idx))
         self.feet_pos, self.feet_vel = [], []
         ###
+        self.action_scale   = 0.2
         self.num_actions = len(self.joint_names)
         dim_observations = 12 + 12 + 3 + 2 + 1     # joint_pos (12), joint_vel (12), gyro (3), roll/pitch (2), height (1)
         self.action_space      = spaces.Box(low=-1.0,    high=1.0,    shape=(self.num_actions,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(dim_observations,), dtype=np.float32)
-
-        self.action_scale   = 0.2
-        self.last_joint_vel = None
-        self.last_action    = None
+        ###
+        self.last_joint_vel = np.zeros(12)
+        self.last_action    = np.zeros(self.action_space.shape, dtype=np.float32)
         self.initial_pose = copy.deepcopy(self.mujoco_data.qpos[-12:])
     def _get_obs(self):
         joint_pos = self.mujoco_data.qpos[-12:]
@@ -136,11 +136,14 @@ class CubicDoggoEnv(gym.Env):
         #print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
         
         self.last_text_update = 0.0
-        self.last_joint_vel   = None
-        self.last_action      = None
+        self.last_joint_vel   = np.zeros(12)
+        self.last_action      = np.zeros(self.action_space.shape, dtype=np.float32)
         mujoco.mj_resetData(self.mujoco_model, self.mujoco_data)
         if self.mujoco_model.nkey > 0:
             mujoco.mj_resetDataKeyframe(self.mujoco_model, self.mujoco_data, 0)
+        else:
+            self.mujoco_data.qpos[:] = self.mujoco_model.qpos0
+            self.mujoco_data.qvel[:] = 0.0
 
 
         ############################################################################## initial state randomization
@@ -174,9 +177,9 @@ class CubicDoggoEnv(gym.Env):
         target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.15
 
-        reward_roll_pitch_scale = 2.0
+        reward_roll_pitch_scale = 4.0
         reward_roll_pitch_sigma = 0.05
-        reward_height_scale     = 2.0
+        reward_height_scale     = 4.0
         reward_height_sigma     = 0.05
         penalty_joint_vel_scale = 0.0001
         penalty_joint_acc_scale = 2.5e-7
@@ -272,13 +275,11 @@ def main():
 
     if os.path.exists(policy_model_file):
         print("cubic_doggo_mujoco_stand_ppo(): continuing PPO model:", policy_model_file) 
-        ppo_model = PPO.load(
-            policy_model_file, 
-            env=ppo_env, 
-            device="cpu",
-            verbose=1,
-            tensorboard_log=policy_model_path
-        )
+        ppo_model = PPO.load(policy_model_file, 
+                             env=ppo_env, 
+                             device="cpu",
+                             verbose=1,
+                             tensorboard_log=policy_model_path)
     else:
         print("cubic_doggo_mujoco_stand_ppo(): initializing PPO model")
         ppo_model = PPO("MlpPolicy", 
