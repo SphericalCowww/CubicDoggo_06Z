@@ -95,6 +95,15 @@ def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_s
         target_feet.append(np.array([target_x, target_y, target_z]))
     return target_feet
 #############################################################################################################################
+def findSaveFile(policy_model_path, policy_model_name, file_type):
+    ppo_files = glob.glob(os.path.join(policy_model_path, policy_model_name+"*"+file_type))
+    if len(ppo_files) != 0:
+        ppo_iters = [int(ppo_file.split(policy_model_name)[1].split(file_type)[0]) for ppo_file in ppo_files]
+        return os.path.join(policy_model_path, policy_model_name+str(max(ppo_iters))+file_type), max(ppo_iters)
+    else:
+        return None, 0
+#############################################################################################################################
+
 def main(): pass
 if __name__ == '__main__': main()
  

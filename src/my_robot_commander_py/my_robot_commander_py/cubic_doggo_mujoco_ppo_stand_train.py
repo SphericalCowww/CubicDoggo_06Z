@@ -7,10 +7,12 @@ import xacro
 import mujoco, mujoco.viewer
 import pinocchio
 import torch
+torch.use_deterministic_algorithms(True)
 import gymnasium as gym
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import VecNormalize
  
 from ._GlobalFuncs import *
 PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
@@ -177,17 +179,17 @@ class CubicDoggoEnv(gym.Env):
         target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.15
 
-        reward_roll_pitch_scale = 4.0
+        reward_roll_pitch_scale = 2.0
         reward_roll_pitch_sigma = 0.05
-        reward_height_scale     = 4.0
+        reward_height_scale     = 2.0
         reward_height_sigma     = 0.05
-        penalty_joint_vel_scale = 0.0001
-        penalty_joint_acc_scale = 2.5e-7
+        penalty_joint_vel_scale = 1.0E-4
+        penalty_joint_acc_scale = 2.5E-7
         penalty_ang_vel_scale   = 0.05
 
         penalty_lin_vel_scale      = 0.5
-        penalty_joint_torque_scale = 1.0e-4
-        penalty_joint_power_scale  = 2.0e-4     
+        penalty_joint_torque_scale = 1.0E-4
+        penalty_joint_power_scale  = 2.0E-4     
         penalty_slip_scale         = 0.0
 
         penalty_action_scale      = 0.001 
@@ -259,9 +261,10 @@ def main():
     policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", 
                                                "ppo_tensorboards/")
     policy_model_name = "ppo_cubic_doggo_stand"
-    policy_model_file = os.path.join(policy_model_path, policy_model_name+".zip")
+    vec_norm_name     = policy_model_name + "_vec_norm"
+    policy_model_file, policy_model_idx = findSaveFile(policy_model_path, policy_model_name, ".zip")
+    vec_norm_file,     _                = findSaveFile(policy_model_path, vec_norm_name,     ".pkl")   
     n_envs = min(os.cpu_count(), 16)
-    
     ############################################################################## neural network
     #default_policy_kwargs = dict(activation_fn=torch.nn.Tanh,
     #                             net_arch=[dict(pi=[64, 64], vf=[64, 64])])
@@ -271,35 +274,59 @@ def main():
     ############################################################################## visualization or headless
     #ppo_env = CubicDoggoEnv(render_mode="human")
     ppo_env = make_vec_env(CubicDoggoEnv, n_envs=n_envs)
+    
+    ppo_episodeN = 20
+    ppo_stepN    = 1_000_000
+    rand_seed    = 1
     ##############################################################################
-
-    if os.path.exists(policy_model_file):
-        print("cubic_doggo_mujoco_stand_ppo(): continuing PPO model:", policy_model_file) 
-        ppo_model = PPO.load(policy_model_file, 
-                             env=ppo_env, 
-                             device="cpu",
-                             verbose=1,
-                             tensorboard_log=policy_model_path)
-    else:
+    if policy_model_file == None:
         print("cubic_doggo_mujoco_stand_ppo(): initializing PPO model")
+        ppo_env = VecNormalize(ppo_env,
+                               norm_obs=True,
+                               norm_reward=True,
+                               clip_obs=10.0,
+                               clip_reward=10.0,
+                               gamma=0.99)
         ppo_model = PPO("MlpPolicy", 
                         ppo_env,
                         device="cpu",
                         verbose=1,
+                        seed=rand_seed,
                         policy_kwargs=policy_kwargs,
-                        learning_rate=3e-4,
+                        learning_rate=3.0E-5,
+                        target_kl=0.03,
+                        vf_coef=1.0,
+                        max_grad_norm=0.5,
                         n_steps=2048,
                         batch_size=128,
                         n_epochs=10,
                         gamma=0.99,
                         gae_lambda=0.95,
                         tensorboard_log=policy_model_path)
-    
+    else:
+        print("cubic_doggo_mujoco_stand_ppo(): continuing PPO model:", policy_model_file)
+        ppo_env = VecNormalize.load(vec_norm_file, ppo_env)
+        ppo_model = PPO.load(policy_model_file, 
+                             env=ppo_env, 
+                             device="cpu",
+                             verbose=1,
+                             seed=rand_seed,
+                             tensorboard_log=policy_model_path)    
+
     print("cubic_doggo_mujoco_stand_ppo(): start training, with "+str(n_envs)+" CPU cores...")
-    ppo_model.learn(total_timesteps=1_000_000)
-    ppo_model.save(policy_model_path+policy_model_name)
-    print("cubic_doggo_mujoco_stand_ppo(): model saved:", policy_model_path+policy_model_name+".zip")
-    
+    start_time = time.time()
+    for ppo_idx in range(ppo_episodeN):
+        ppo_model.learn(total_timesteps=ppo_stepN, reset_num_timesteps=False)
+        elapsed_time = time.time() - start_time
+        save_idx = ppo_idx + policy_model_idx + 1
+        ppo_model_save_name = policy_model_path + policy_model_name + str(save_idx)
+        vec_norm_save_name  = policy_model_path + vec_norm_name     + str(save_idx) 
+        ppo_model.save(ppo_model_save_name)
+        ppo_env.save(vec_norm_save_name)
+        print("cubic_doggo_mujoco_stand_ppo(): model saved:",                ppo_model_save_name+".zip")
+        print("cubic_doggo_mujoco_stand_ppo(): vector normalization saved:", vec_norm_save_name+".pkl")
+        print("cubic_doggo_mujoco_stand_ppo(): total time used", elapsed_time, "s") 
+        print("----------------------------------------------------------------------------------------------------------/n")
 
 #############################################################################################################################
 if __name__ == '__main__': main()

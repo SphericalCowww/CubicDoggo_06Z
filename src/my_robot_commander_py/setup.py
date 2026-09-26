@@ -24,13 +24,14 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'cubic_leg1_mujoco_init            = my_robot_commander_py.cubic_leg1_mujoco_init:main',
-            'cubic_doggo_mujoco_init           = my_robot_commander_py.cubic_doggo_mujoco_init:main',
-            'cubic_doggo_mujoco_ros_bridge     = my_robot_commander_py.cubic_doggo_mujoco_ros_bridge:main',
-            'cubic_doggo_mujoco_pin_stand_test = my_robot_commander_py.cubic_doggo_mujoco_pin_stand_test:main',
-            'cubic_doggo_mujoco_pin_walk       = my_robot_commander_py.cubic_doggo_mujoco_pin_walk:main',
-            'cubic_doggo_mujoco_pin_stand      = my_robot_commander_py.cubic_doggo_mujoco_pin_stand:main',
-            'cubic_doggo_mujoco_ppo_stand      = my_robot_commander_py.cubic_doggo_mujoco_ppo_stand:main',
+            'cubic_leg1_mujoco_init              = my_robot_commander_py.cubic_leg1_mujoco_init:main',
+            'cubic_doggo_mujoco_init             = my_robot_commander_py.cubic_doggo_mujoco_init:main',
+            'cubic_doggo_mujoco_ros_bridge       = my_robot_commander_py.cubic_doggo_mujoco_ros_bridge:main',
+            'cubic_doggo_mujoco_pin_stand_test   = my_robot_commander_py.cubic_doggo_mujoco_pin_stand_test:main',
+            'cubic_doggo_mujoco_pin_walk         = my_robot_commander_py.cubic_doggo_mujoco_pin_walk:main',
+            'cubic_doggo_mujoco_pin_stand        = my_robot_commander_py.cubic_doggo_mujoco_pin_stand:main',
+            'cubic_doggo_mujoco_ppo_stand_train  = my_robot_commander_py.cubic_doggo_mujoco_ppo_stand_train:main',
+            'cubic_doggo_mujoco_ppo_stand_deploy = my_robot_commander_py.cubic_doggo_mujoco_ppo_stand_deploy:main',
         ],
     },
 )
