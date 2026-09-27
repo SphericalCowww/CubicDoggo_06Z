@@ -163,4 +163,7 @@ Gymnasium sets up the environment for reinforcement learning, while stable-basel
 - Raspberry Pi 5 CAD model sourced from [Printables](https://www.printables.com/model/607854-raspberry-pi-5).
 - RPLIDAR A1M8 CAD model provided by [SLAMTEC](https://www.slamtec.com/en/support#rplidar-a-series).
 - Forest background used in MuJoCo, "Free Pixel Art Forest" by edermuniz14 from [GameDev Market](https://www.gamedevmarket.net/asset/free-pixel-art-forest). Used under the GameDev Market Pro Licence.
+- 8-bit AI-generated music by Retro-BGM-Chan from [Pixabay](https://pixabay.com/users/retro-bgm-chan-55246343/). Used under the [Pixabay License](https://pixabay.com/service/license-summary/)
+- 8-bit AI-generated music by Brutaldesign from [Pixabay](https://pixabay.com/users/brutaldesign-52522998). Used under the [Pixabay License](https://pixabay.com/service/license-summary/)
+- 8-bit AI-generated music by Psychronic from [Pixabay](https://pixabay.com/users/psychronic-13092015). Used under the [Pixabay License](https://pixabay.com/service/license-summary/)
 
