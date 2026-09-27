@@ -17,15 +17,16 @@ from stable_baselines3.common.callbacks import BaseCallback
  
 from ._GlobalFuncs import *
 PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
-#############################################################################################################################
+##################################################################################################################################
 class CubicDoggoEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
     def __init__(self, render_mode=None):
         super().__init__()
         self.render_mode      = render_mode
         self.viewer           = None
-        self.text_update_time = 0.001     #s
-        self.last_text_update = 0.0
+        self.truncate_max_time = 20.0    #s
+        self.text_update_time  = 1.0     #s
+        self.last_text_update  = 0.0
 
         self.leg_prefixes = ['FL', 'FR', 'BL', 'BR']
         self.joint_names = []
@@ -139,7 +140,7 @@ class CubicDoggoEnv(gym.Env):
                                [imu_roll_rad, imu_pitch_rad, privileged_height]]).astype(np.float32)
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        #print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
+        print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
         
         self.last_text_update = 0.0
         self.last_joint_vel   = np.zeros(12)
@@ -158,8 +159,9 @@ class CubicDoggoEnv(gym.Env):
 
         ##############################################################################
 
-
         mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
+        if (self.render_mode == "human") and (self.viewer is not None):
+            self.viewer.sync() 
         return self._get_obs(), {}
     def step(self, action):
         target_ctrl = self.initial_pose + action*self.action_scale
@@ -202,7 +204,7 @@ class CubicDoggoEnv(gym.Env):
         ############################################################################## termination conditions
         terminated = bool((np.pi/6 < abs(data_roll)) or (np.pi/6 < abs(data_pitch)) or
                           ((data_height < 0.1) or (0.2 < data_height)))
-        truncated  = False
+        truncated = bool(self.mujoco_data.time >= self.truncate_max_time)               # truncated is termination without penalty
         ##############################################################################        
 
 
@@ -237,7 +239,7 @@ class CubicDoggoEnv(gym.Env):
         self.reward_dict["penalty_ang_vel"]      = -penalty_ang_vel_scale       *np.sum(np.square(data_gyro))
         self.reward_dict["penalty_lin_vel"]      = -penalty_lin_vel_scale       *np.sum(np.square(sim_lin_vel))
         self.reward_dict["penalty_joint_torque"] = -penalty_joint_torque_scale  *np.sum(np.square(sim_joint_torque))
-        self.reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale*np.sum(np.abs(sim_joint_torque*data_joint_vel))
+        self.reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale   *np.sum(np.abs(sim_joint_torque*data_joint_vel))
         self.reward_dict["penalty_slip"]         = -penalty_slip_scale          *       residual_slip
         self.reward_dict["penalty_action"]       = -penalty_action_scale        *np.sum(np.square(action))
         self.reward_dict["penalty_action_rate"]  = -penalty_action_rate_scale   *np.sum(residual_action)
@@ -246,19 +248,19 @@ class CubicDoggoEnv(gym.Env):
         reward = float(sum(self.reward_dict.values()))
         self.last_joint_vel = data_joint_vel.copy()
         self.last_action    = action.copy()
- 
+
+        if (self.render_mode == "human") and (self.viewer is None):
+            self.viewer = mujoco.viewer.launch_passive(self.mujoco_model, self.mujoco_data)
+            self.last_text_update = 0.0 
         if (self.mujoco_data.time - self.last_text_update) > self.text_update_time: 
             telemetry_str  = f"Roll:{data_roll:9.5f}deg | Pitch:{data_pitch:9.5f}deg | Height:{data_height:9.5f}m | "
             telemetry_str += f"Time:{self.mujoco_data.time:9.5f}s"
-            self.last_text_update = copy.deepcopy(self.mujoco_data.time)
-            #print(telemetry_str)
-        if self.render_mode == "human":
-            if self.viewer is None:
-               self.viewer = mujoco.viewer.launch_passive(self.mujoco_model, self.mujoco_data)
-               self.last_text_update = 0.0
-            if (self.mujoco_data.time - self.last_text_update) > self.text_update_time:
+            if self.render_mode == "human":
                 self.viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_100, mujoco.mjtGridPos.mjGRID_TOPRIGHT,
                                       "TELEMETRY", telemetry_str))
+            #print(telemetry_str) 
+            self.last_text_update = copy.deepcopy(self.mujoco_data.time)
+        if self.render_mode == "human":
             self.viewer.sync()
         return observations, reward, terminated, truncated, {"reward_dict": self.reward_dict}
     def close(self):
@@ -285,13 +287,14 @@ class CurriculumSchedulingCallback(BaseCallback):
         if infos and "reward_dict" in infos[0]:
             for reward_key, reward_val in infos[0]["reward_dict"].items():
                 self.logger.record("z_rewards/"+reward_key, reward_val)
- 
+
         return True
-#############################################################################################################################
+##################################################################################################################################
 def main():
     policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_0_"
 
-    policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description","ppo_tensorboards/")
+    policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", "ppo_tensorboards/")
+    os.makedirs(policy_model_path, exist_ok=True)
     policy_model_file, policy_model_idx = findSaveFile(policy_model_path, policy_model_name, ".zip")
     n_envs = min(os.cpu_count(), 16)
     ############################################################################## neural network
@@ -301,16 +304,20 @@ def main():
                          net_arch=dict(pi=[256, 256, 128],                  # Policy/Actor network layers
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ############################################################################## visualization or headless
-    #policy_model_file = policy_model_name.replace(str(policy_model_idx), "5")
-    #ppo_checkpointN   = 1
-    #ppo_stepN         = 1_000_000_000 
-    #rand_seed         = 1
-    #ppo_env = CubicDoggoEnv(render_mode="human")
+    #render_mode = "human"
+    render_mode = None
 
-    ppo_checkpointN = 30
-    ppo_stepN       = 1_000_000                     # minimum is n_envs*n_steps, 16*2048 = 32768
-    rand_seed       = 1
-    ppo_env = make_vec_env(CubicDoggoEnv, n_envs=n_envs)
+    rand_seed = 1
+    if render_mode == "human":
+        policy_model_file = None
+        #policy_model_file =policy_model_path.replace("ppo_tensorboards/","ppo_tensorboards_/")+"cubic_doggo_stand_260927_0_0.zip"
+        ppo_checkpointN   = 1
+        ppo_stepN         = 1_000_000_000 
+        ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
+    else:
+        ppo_checkpointN = 30
+        ppo_stepN       = 1_000_000                     # minimum is n_envs*n_steps, 16*2048 = 32768
+        ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=n_envs)
     ##############################################################################
     if policy_model_file == None:
         print("cubic_doggo_mujoco_stand_ppo(): initializing PPO model")
@@ -363,10 +370,10 @@ def main():
             print("cubic_doggo_mujoco_stand_ppo(): model saved:",                ppo_model_save_name+".zip")
             print("cubic_doggo_mujoco_stand_ppo(): vector normalization saved:", ppo_model_save_name+"_vec_norm.pkl")
         print("cubic_doggo_mujoco_stand_ppo(): total time used", elapsed_time, "s") 
-        print("----------------------------------------------------------------------------------------------------------\n")
+        print("---------------------------------------------------------------------------------------------------------------\n")
     print("cubic_doggo_mujoco_stand_ppo(): end of code")
 
-#############################################################################################################################
+##################################################################################################################################
 if __name__ == '__main__': main()
 
 
