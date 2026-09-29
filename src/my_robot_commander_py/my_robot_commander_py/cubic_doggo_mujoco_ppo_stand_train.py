@@ -185,9 +185,9 @@ class CubicDoggoEnv(gym.Env):
         target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.15
 
-        reward_roll_pitch_scale = 2.0
+        reward_roll_pitch_scale = 1.0
         reward_roll_pitch_sigma = 0.05
-        reward_height_scale     = 2.0
+        reward_height_scale     = 1.0
         reward_height_sigma     = 0.05
         penalty_joint_vel_scale = 1.0E-4
         penalty_joint_acc_scale = 2.5E-7
@@ -197,7 +197,7 @@ class CubicDoggoEnv(gym.Env):
         penalty_joint_torque_scale   = 1.0E-4
         penalty_joint_power_scale    = 2.0E-4     
         penalty_slip_scale           = 0.0
-        penalty_joint_pos_init_scale = 0.001
+        penalty_joint_pos_init_scale = 0.1
 
         penalty_action_scale      = 0.001 
         penalty_action_rate_scale = 0.01
@@ -251,6 +251,7 @@ class CubicDoggoEnv(gym.Env):
 
         if (self.render_mode == "human") and (self.viewer is None):
             self.viewer = mujoco.viewer.launch_passive(self.mujoco_model, self.mujoco_data)
+            self.camera_initialized = False
             self.last_text_update = 0.0 
         if (self.mujoco_data.time - self.last_text_update) > self.text_update_time: 
             telemetry_str  = f"Roll:{data_roll:9.5f}deg | Pitch:{data_pitch:9.5f}deg | Height:{data_height:9.5f}m | "
@@ -277,7 +278,7 @@ class CurriculumSchedulingCallback(BaseCallback):
     def _on_step(self) -> bool:
         progress_ratio = self.num_timesteps/self.total_timesteps
 
-        #penalty_joint_pos_init 
+        #penalty_joint_pos_init
         decay_rate = 10.0
         new_scale = np.exp(-decay_rate*progress_ratio)
         new_scale = new_scale if (new_scale > self.scale_thres) else 0.0
@@ -291,7 +292,10 @@ class CurriculumSchedulingCallback(BaseCallback):
         return True
 ##################################################################################################################################
 def main():
-    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_0_"
+    render_mode = "human"
+    #render_mode = None
+    #policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_3_"
+    policy_model_name = "cubic_doggo_stand_260928_3_"
 
     policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", "ppo_tensorboards/")
     os.makedirs(policy_model_path, exist_ok=True)
@@ -304,20 +308,17 @@ def main():
                          net_arch=dict(pi=[256, 256, 128],                  # Policy/Actor network layers
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ############################################################################## visualization or headless
-    #render_mode = "human"
-    render_mode = None
-
-    rand_seed = 1
+    rand_seed       = 1
+    ppo_checkpointN = 40
+    ppo_stepN       = 1_000_000                             # minimum is n_envs*n_steps, 16*2048 = 32768
     if render_mode == "human":
-        policy_model_file = None
-        #policy_model_file =policy_model_path.replace("ppo_tensorboards/","ppo_tensorboards_/")+"cubic_doggo_stand_260927_0_0.zip"
-        ppo_checkpointN   = 1
-        ppo_stepN         = 1_000_000_000 
+        #policy_model_file = None
+        #policy_model_file = policy_model_path + "cubic_doggo_stand_260928_2_10.zip"
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
+        reset_num_timesteps = False#True
     else:
-        ppo_checkpointN = 30
-        ppo_stepN       = 1_000_000                     # minimum is n_envs*n_steps, 16*2048 = 32768
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=n_envs)
+        reset_num_timesteps = False
     ##############################################################################
     if policy_model_file == None:
         print("cubic_doggo_mujoco_stand_ppo(): initializing PPO model")
@@ -360,7 +361,7 @@ def main():
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=(ppo_stepN*ppo_checkpointN))
         ppo_model.learn(total_timesteps=ppo_stepN, 
                         callback=curriculum_callback,
-                        reset_num_timesteps=False,
+                        reset_num_timesteps=reset_num_timesteps,
                         tb_log_name=policy_model_name)
         elapsed_time = time.time() - start_time
         if getattr(ppo_env, "render_mode", None) != "human":
