@@ -122,8 +122,15 @@ def main():
             roll_deg  = math.degrees(roll_rad)
             pitch_deg = math.degrees(pitch_rad)
             yaw_deg   = math.degrees(yaw_rad)
-            print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}", end='\r')           
- 
+            print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}") 
+
+            for leg_prefix in leg_prefixes:
+                mujoco_joint_id = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, f'calfSphere_{leg_prefix}')
+                foot_z = mujoco_data.geom_xpos[mujoco_joint_id][2]
+                foot_r = mujoco_model.geom_size[mujoco_joint_id][0]   # sphere radius
+                print(f"  {leg_prefix}: center_z={foot_z:.6f}  radius={foot_r:.6f}  bottom_z={foot_z-foot_r:.6f}")
+            print( "  ncon at t=0:", mujoco_data.ncon, "base_z:", mujoco_data.xpos[mujoco_model.body('robot_root').id][2]) 
+
             viewer.sync()
             time_until_next_step = mujoco_model.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:
