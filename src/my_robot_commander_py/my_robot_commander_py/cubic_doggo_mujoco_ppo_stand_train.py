@@ -299,7 +299,7 @@ class CubicDoggoEnv(gym.Env):
         reward_dict["penalty_lin_vel"]      = -penalty_lin_vel_scale       *np.sum(np.square(sim_lin_vel))
         reward_dict["penalty_joint_torque"] = -penalty_joint_torque_scale  *np.sum(np.square(sim_joint_torque))
         reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale   *np.sum(np.abs(sim_joint_torque*data_joint_vel))
-        reward_dict["penalty_leg_torque"]   = -penalty_leg_torque_scale    *np.sum(np.square(residual_leg_torque))
+        reward_dict["penalty_leg_torque"]   = -penalty_leg_torque_scale    *       residual_leg_torque
         reward_dict["penalty_slip"]         = -penalty_slip_scale          *       residual_slip
         reward_dict["penalty_action"]       = -penalty_action_scale        *np.sum(np.square(action))
         reward_dict["penalty_action_rate"]  = -penalty_action_rate_scale   *np.sum(residual_action)
