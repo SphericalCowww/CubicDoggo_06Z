@@ -210,7 +210,8 @@ class CubicDoggoEnv(gym.Env):
 
         sim_lin_vel      = self.mujoco_data.sensor('linvel').data[:2]       # XY velocity
         sim_joint_torque = self.mujoco_data.actuator_force
-        
+        sim_leg_torque   = np.sum(np.abs(sim_joint_torque.reshape(4, 3)), axis=1)
+
         for obs_idx in range(len(data_joint_pos)):
             obs_dict["data_joint_pos"+str(obs_idx)] = data_joint_pos[obs_idx]
         for obs_idx in range(len(data_joint_vel)):
@@ -224,6 +225,8 @@ class CubicDoggoEnv(gym.Env):
             obs_dict["sim_lin_vel"+str(obs_idx)] = sim_lin_vel[obs_idx]
         for obs_idx in range(len(sim_joint_torque)):
             obs_dict["sim_joint_torque"+str(obs_idx)] = sim_joint_torque[obs_idx]
+        for obs_idx in range(len(sim_leg_torque)):
+            obs_dict["sim_leg_torque"+str(obs_idx)] = sim_leg_torque[obs_idx]
         ############################################################################## reward/penalty parameters
         target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.15
@@ -239,6 +242,7 @@ class CubicDoggoEnv(gym.Env):
         penalty_lin_vel_scale        = 0.5
         penalty_joint_torque_scale   = 1.0E-4
         penalty_joint_power_scale    = 2.0E-4     
+        penalty_leg_torque_scale     = 0.1
         penalty_slip_scale           = 0.0
         penalty_joint_pos_init_scale = 0.1
 
@@ -255,6 +259,7 @@ class CubicDoggoEnv(gym.Env):
         residual_orientation = residual_roll + residual_pitch
         residual_height      = np.square(data_height - target_height)
         residual_pos         = np.square(data_joint_pos - self.initial_pose)
+        residual_leg_torque  = np.std(sim_leg_torque)
         residual_vel         = 0.0
         residual_action      = 0.0
         residual_slip        = 0.0
@@ -294,6 +299,7 @@ class CubicDoggoEnv(gym.Env):
         reward_dict["penalty_lin_vel"]      = -penalty_lin_vel_scale       *np.sum(np.square(sim_lin_vel))
         reward_dict["penalty_joint_torque"] = -penalty_joint_torque_scale  *np.sum(np.square(sim_joint_torque))
         reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale   *np.sum(np.abs(sim_joint_torque*data_joint_vel))
+        reward_dict["penalty_leg_torque"]   = -penalty_leg_torque_scale    *np.sum(np.square(residual_leg_torque))
         reward_dict["penalty_slip"]         = -penalty_slip_scale          *       residual_slip
         reward_dict["penalty_action"]       = -penalty_action_scale        *np.sum(np.square(action))
         reward_dict["penalty_action_rate"]  = -penalty_action_rate_scale   *np.sum(residual_action)
@@ -372,8 +378,7 @@ class CurriculumSchedulingCallback(BaseCallback):
 ##################################################################################################################################
 def main():
     render_mode = None
-    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_3_"
-    
+    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_1_"
     #render_mode = "human"
     #policy_model_name = "cubic_doggo_stand_260928_3_"
 
