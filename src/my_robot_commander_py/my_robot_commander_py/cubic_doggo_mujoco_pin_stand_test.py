@@ -10,6 +10,9 @@ import pinocchio
 from ._GlobalFuncs import *
 #############################################################################################################################
 def main():
+    text_update_time   = 0.1                         # s
+    action_delay_time  = 1.0                         # s
+
     leg_prefixes = ['FL', 'FR', 'BL', 'BR']
     joint_names = []
     for leg_prefix in leg_prefixes:
@@ -106,6 +109,7 @@ def main():
     print("mujoco_joint_inits:",      mujoco_data.qpos,        len(mujoco_data.qpos))
     print("mujoco_ctrl_targets:",     mujoco_ctrl_targets,     len(mujoco_ctrl_targets))
     ################
+    last_text_update  = 0.0         #s
     action_delay_time = 1.0         #s
     with mujoco.viewer.launch_passive(mujoco_model, mujoco_data) as viewer:
         viewer.opt.geomgroup[0] = 0
@@ -115,21 +119,24 @@ def main():
                 mujoco_data.ctrl[:] = mujoco_ctrl_targets
 
             mujoco.mj_step(mujoco_model, mujoco_data)
-            accel_data = mujoco_data.sensor('accel').data
-            gyro_data  = mujoco_data.sensor('gyro').data
-            quat_data  = mujoco_data.sensor('quat').data
-            roll_rad, pitch_rad, yaw_rad = quat2euler(*quat_data)
-            roll_deg  = math.degrees(roll_rad)
-            pitch_deg = math.degrees(pitch_rad)
-            yaw_deg   = math.degrees(yaw_rad)
-            print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}") 
+            if (last_text_update == 0) or ((mujoco_data.time - last_text_update) > text_update_time):
+                print(f"---Time: {mujoco_data.time:6.1f}")
+                accel_data = mujoco_data.sensor('accel').data
+                gyro_data  = mujoco_data.sensor('gyro').data
+                quat_data  = mujoco_data.sensor('quat').data
+                roll_rad, pitch_rad, yaw_rad = quat2euler(*quat_data)
+                roll_deg  = math.degrees(roll_rad)
+                pitch_deg = math.degrees(pitch_rad)
+                yaw_deg   = math.degrees(yaw_rad)
+                print(f"Roll: {roll_deg:6.1f} | Pitch: {pitch_deg:6.1f} | Yaw: {yaw_deg:6.1f}") 
 
-            for leg_prefix in leg_prefixes:
-                mujoco_joint_id = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, f'calfSphere_{leg_prefix}')
-                foot_z = mujoco_data.geom_xpos[mujoco_joint_id][2]
-                foot_r = mujoco_model.geom_size[mujoco_joint_id][0]   # sphere radius
-                print(f"  {leg_prefix}: center_z={foot_z:.6f}  radius={foot_r:.6f}  bottom_z={foot_z-foot_r:.6f}")
-            print( "  ncon at t=0:", mujoco_data.ncon, "base_z:", mujoco_data.xpos[mujoco_model.body('robot_root').id][2]) 
+                for leg_prefix in leg_prefixes:
+                    mujoco_joint_id = mujoco.mj_name2id(mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, f'calfSphere_{leg_prefix}')
+                    foot_z = mujoco_data.geom_xpos[mujoco_joint_id][2]
+                    foot_r = mujoco_model.geom_size[mujoco_joint_id][0]   # sphere radius
+                    print(f"  {leg_prefix}: center_z={foot_z:.6f}  radius={foot_r:.6f}  bottom_z={foot_z-foot_r:.6f}")
+                print( "  ncon at t=0:", mujoco_data.ncon, "base_z:",mujoco_data.xpos[mujoco_model.body('robot_root').id][2]) 
+                last_text_update = copy.deepcopy(mujoco_data.time)
 
             viewer.sync()
             time_until_next_step = mujoco_model.opt.timestep - (time.time() - step_start)

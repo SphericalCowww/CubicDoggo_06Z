@@ -27,7 +27,7 @@ class CubicDoggoEnv(gym.Env):
 
         self.joint_number = 12
         self.gyro_number  = 3 
-        self.obs_dim      = self.joint_number + self.joint_number + self.gyro + 2 + 1
+        self.obs_dim      = self.joint_number + self.joint_number + self.gyro_number + 2 + 1
 
         self.time_per_step     = 0.002   # s, default = 0.002
         self.stepN_per_action  = 4       # steps
@@ -177,7 +177,7 @@ class CubicDoggoEnv(gym.Env):
 
 
         ############################################################################## initial state domain randomization
-        if init_var_schedule > 0:
+        if self.init_var_schedule > 0:
             init_pos_var_range = np.array([-np.pi/18, np.pi/18])
             init_rot_var_range = np.array([-np.pi,    np.pi])
             self.mujoco_data.qpos[-self.joint_number:] += self.np_random.uniform(*(self.init_var_schedule*init_pos_var_range),
@@ -189,7 +189,7 @@ class CubicDoggoEnv(gym.Env):
 
 
         mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
-        for _ in range(self.skip_first_N_steps):
+        for _ in range(self.skip_first_stepN):
             mujoco.mj_step(self.mujoco_model, self.mujoco_data)
         if (self.render_mode == "human") and (self.viewer is not None):
             self.viewer.sync() 
@@ -299,7 +299,7 @@ class CubicDoggoEnv(gym.Env):
         reward_dict["penalty_action_rate"]  = -penalty_action_rate_scale   *np.sum(residual_action)
         reward_dict["penalty_joint_pos_init"]  = -penalty_joint_pos_init_scale*np.sum(residual_pos)
         reward_dict["penalty_joint_pos_init"] *= self.penalty_joint_pos_init_schedule        
-        reward = float(sum(self.reward_dict.values()))
+        reward = float(sum(reward_dict.values()))
         infos_dict["reward_dict"] = reward_dict
 
         reward_ratio_dict = {}
@@ -371,10 +371,11 @@ class CurriculumSchedulingCallback(BaseCallback):
         return True
 ##################################################################################################################################
 def main():
-    render_mode = "human"
-    #render_mode = None
-    #policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_3_"
-    policy_model_name = "cubic_doggo_stand_260928_3_"
+    render_mode = None
+    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_3_"
+    
+    #render_mode = "human"
+    #policy_model_name = "cubic_doggo_stand_260928_3_"
 
     policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", "ppo_tensorboards/")
     os.makedirs(policy_model_path, exist_ok=True)
