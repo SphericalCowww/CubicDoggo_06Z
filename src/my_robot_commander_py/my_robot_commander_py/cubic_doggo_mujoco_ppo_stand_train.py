@@ -74,6 +74,7 @@ class CubicDoggoEnv(gym.Env):
         if self.mujoco_model.nkey > 0:
             mujoco.mj_resetDataKeyframe(self.mujoco_model, self.mujoco_data, 0)
 
+        self.root_body_id    = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_BODY, 'robot_root')
         self.mujoco_foot_ids = [mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, 'calfSphere_'+leg_prefix)
                                 for leg_prefix in self.leg_prefixes]
         self.mujoco_floor_id = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, 'floor')
@@ -108,6 +109,12 @@ class CubicDoggoEnv(gym.Env):
         self.obs_noise_schedule              = 0.0
         self.init_var_schedule               = 0.0
         self.penalty_joint_pos_init_schedule = 1.0
+        self.push_force_schedule             = 0.0
+        self.push_interval_stepN = 500                  # s 
+        self.push_duration_stepN = 50                   # s
+        self.max_push_force      = 15.0                 # N 
+        self.step_counter = 0
+        self.current_push_force = np.zeros(6)                
         ###
         self.action_scale = 0.2
         self.num_actions = len(self.joint_names)
@@ -174,8 +181,10 @@ class CubicDoggoEnv(gym.Env):
         else:
             self.mujoco_data.qpos[:] = self.mujoco_model.qpos0
             self.mujoco_data.qvel[:] = 0.0
-
-
+        ###
+        self.step_counter                                = 0
+        self.current_push_force[:]                       = 0.0
+        self.mujoco_data.xfrc_applied[self.root_body_id] = 0.0
         ############################################################################## initial state domain randomization
         if self.init_var_schedule > 0:
             init_pos_var_range = np.array([-np.pi/18, np.pi/18])
@@ -212,6 +221,19 @@ class CubicDoggoEnv(gym.Env):
         sim_joint_torque = self.mujoco_data.actuator_force
         sim_leg_torque   = np.sum(np.abs(sim_joint_torque.reshape(4, 3)), axis=1)
 
+        ###
+        step_in_cycle = self.step_counter%self.push_interval_steps
+        if step_in_cycle == 0:
+            force_angle     = self.np_random.uniform(0, 2*np.pi)
+            force_magnitude = self.np_random.uniform(0.0, self.max_push_force)*self.push_force_schedule
+            self.current_push_force[0] = force_magnitude*np.cos(force_angle)
+            self.current_push_force[1] = force_magnitude*np.sin(force_angle)
+            self.current_push_force[2] = 0.0 
+        elif step_in_cycle >= self.push_duration_steps:
+            self.current_push_force[:] = 0.0
+        self.mujoco_data.xfrc_applied[self.root_body_id] = self.current_push_force
+        self.step_counter += self.stepN_per_action
+        ###
         for obs_idx in range(len(data_joint_pos)):
             obs_dict["data_joint_pos"+str(obs_idx)] = data_joint_pos[obs_idx]
         for obs_idx in range(len(data_joint_vel)):
@@ -227,6 +249,8 @@ class CubicDoggoEnv(gym.Env):
             obs_dict["sim_joint_torque"+str(obs_idx)] = sim_joint_torque[obs_idx]
         for obs_idx in range(len(sim_leg_torque)):
             obs_dict["sim_leg_torque"+str(obs_idx)] = sim_leg_torque[obs_idx]
+        for obs_idx in range(len(self.current_push_force)):
+            obs_dict["sim_push_force"+str(obs_idx)] = self.current_push_force[obs_idx]
         ############################################################################## reward/penalty parameters
         target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.15
@@ -342,6 +366,8 @@ class CubicDoggoEnv(gym.Env):
         self.init_var_schedule = new_scale
     def set_penalty_joint_pos_init_schedule(self, new_scale: float):
         self.penalty_joint_pos_init_schedule = new_scale
+    def set_push_force_schedule(self, new_scale: float):
+        self.push_force_schedule = new_scale
 class CurriculumSchedulingCallback(BaseCallback):
     def __init__(self, total_timesteps, scale_thres=1.0E-6, verbose=0):
         super().__init__(verbose)
@@ -361,7 +387,10 @@ class CurriculumSchedulingCallback(BaseCallback):
         decay_rate = 10.0
         new_scale = np.exp(-decay_rate*progress_ratio)
         new_scale = new_scale if (new_scale > self.scale_thres) else 0.0
-        self.training_env.env_method("set_penalty_joint_pos_init_schedule", new_scale)       
+        self.training_env.env_method("set_penalty_joint_pos_init_schedule", new_scale)      
+        #push_force
+        new_scale = max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
+        self.training_env.env_method("set_push_force_schedule", new_scale)
         ############################################################################## 
 
         infos = self.locals.get("infos")
