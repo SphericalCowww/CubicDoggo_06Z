@@ -74,6 +74,7 @@ class CubicDoggoEnv(gym.Env):
         if self.mujoco_model.nkey > 0:
             mujoco.mj_resetDataKeyframe(self.mujoco_model, self.mujoco_data, 0)
 
+        self.slope_id        = self.mujoco_model.geom('slope').id
         self.root_body_id    = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_BODY, 'robot_root')
         self.mujoco_foot_ids = [mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, 'calfSphere_'+leg_prefix)
                                 for leg_prefix in self.leg_prefixes]
@@ -137,12 +138,12 @@ class CubicDoggoEnv(gym.Env):
             dom_rand_joint_vec_scale      = 0.50
             dom_rand_imu_gyro_scale       = 0.02
             dom_rand_imu_roll_pitch_scale = 0.01
+        ##############################################################################
             joint_pos += self.np_random.normal(0.0, dom_rand_joint_pos_scale*self.obs_noise_schedule, size=self.joint_number)
             joint_vel += self.np_random.normal(0.0, dom_rand_joint_vec_scale*self.obs_noise_schedule, size=self.joint_number)
             imu_gyro  += self.np_random.normal(0.0, dom_rand_imu_gyro_scale *self.obs_noise_schedule, size=self.gyro_number)
             imu_roll_rad  += self.np_random.normal(0.0, dom_rand_imu_roll_pitch_scale*self.obs_noise_schedule)
             imu_pitch_rad += self.np_random.normal(0.0, dom_rand_imu_roll_pitch_scale*self.obs_noise_schedule)
-        ##############################################################################
     
         self.feet_pos, self.feet_vel = [], []
         for mujoco_joint_q_idx, mujoco_joint_v_idx, pinocchio_joint_q_idx, pinocchio_joint_v_idx \
@@ -166,7 +167,7 @@ class CubicDoggoEnv(gym.Env):
         privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
 
         observations = np.concatenate([joint_pos, joint_vel, imu_gyro, 
-                                       [imu_roll_rad, imu_pitch_rad, privileged_height]]).astype(np.float32)
+                                       [imu_roll_rad, imu_pitch_rad, kinematic_height]]).astype(np.float32)
         return observations
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -187,15 +188,27 @@ class CubicDoggoEnv(gym.Env):
         self.mujoco_data.xfrc_applied[self.root_body_id] = 0.0
         ############################################################################## initial state domain randomization
         if self.init_var_schedule > 0:
-            init_pos_var_range = np.array([-np.pi/18, np.pi/18])
-            init_rot_var_range = np.array([-np.pi,    np.pi])
-            self.mujoco_data.qpos[-self.joint_number:] += self.np_random.uniform(*(self.init_var_schedule*init_pos_var_range),
-                                                                                 size=self.joint_number)
-            self.mujoco_data.qpos[6] = self.np_random.uniform(*(self.init_var_schedule*init_rot_var_range))
-
-        
+            init_joint_pos_var_range   = np.array([-np.pi/18, np.pi/18])
+            init_rot_var_range         = np.array([-np.pi,    np.pi])
+            init_slope_tilt_var_range  = np.array([-np.pi/12, np.pi/12])
+            init_slope_shift_var_range = np.array([-0.5, 0.2])       # m
         ##############################################################################
-
+            # pos_var            
+            pos_shift = self.np_random.uniform(*(self.init_var_schedule*init_joint_pos_var_range), size=self.joint_number)
+            self.mujoco_data.qpos[-self.joint_number:] += pos_shift
+            # rot_var
+            yaw_angle = self.np_random.uniform(*(self.init_var_schedule*init_rot_var_range))
+            angle_R = pin.rpy.eulerToMatrix(0.0, 0.0, yaw_angle)
+            angle_q = pin.Quaternion(angle_R)
+            self.mujoco_data.qpos[3:7] = [angle_q.w, angle_q.x, angle_q.y, angle_q.z]
+            # tilt_var
+            pitch_angle = self.np_random.uniform(*(self.init_var_schedule*init_slope_tilt_var_range))
+            x_pos       = self.np_random.uniform(*(self.init_var_schedule*init_slope_shift_var_range))
+            angle_R = pin.rpy.eulerToMatrix(0.0, pitch_angle, 0.0)
+            angle_q = pin.Quaternion(angle_R)
+            box_half_height = self.mujoco_model.geom_size[self.slope_id][2]
+            self.mujoco_model.geom_quat[self.slope_id] = [angle_q.w, angle_q.x, angle_q.y, angle_q.z]
+            self.mujoco_model.geom_pos[self.slope_id] = [x_pos, 0.0, -box_half_height*np.cos(pitch_angle)]  
 
         mujoco.mj_forward(self.mujoco_model, self.mujoco_data)
         for _ in range(self.skip_first_stepN):
@@ -317,16 +330,16 @@ class CubicDoggoEnv(gym.Env):
         reward_dict = {}
         reward_dict["reward_roll_pitch"] = reward_roll_pitch_scale*np.exp(-residual_orientation/reward_roll_pitch_sigma)
         reward_dict["reward_height"]     = reward_height_scale    *np.exp(-residual_height     /reward_height_sigma)
-        reward_dict["penalty_joint_vel"]    = -penalty_joint_vel_scale     *np.sum(np.square(data_joint_vel))
-        reward_dict["penalty_joint_acc"]    = -penalty_joint_acc_scale     *np.sum(residual_vel)
-        reward_dict["penalty_ang_vel"]      = -penalty_ang_vel_scale       *np.sum(np.square(data_gyro))
-        reward_dict["penalty_lin_vel"]      = -penalty_lin_vel_scale       *np.sum(np.square(sim_lin_vel))
-        reward_dict["penalty_joint_torque"] = -penalty_joint_torque_scale  *np.sum(np.square(sim_joint_torque))
-        reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale   *np.sum(np.abs(sim_joint_torque*data_joint_vel))
-        reward_dict["penalty_leg_torque"]   = -penalty_leg_torque_scale    *       residual_leg_torque
-        reward_dict["penalty_slip"]         = -penalty_slip_scale          *       residual_slip
-        reward_dict["penalty_action"]       = -penalty_action_scale        *np.sum(np.square(action))
-        reward_dict["penalty_action_rate"]  = -penalty_action_rate_scale   *np.sum(residual_action)
+        reward_dict["penalty_joint_vel"]    = -penalty_joint_vel_scale   *np.sum(np.square(data_joint_vel))
+        reward_dict["penalty_joint_acc"]    = -penalty_joint_acc_scale   *np.sum(residual_vel)
+        reward_dict["penalty_ang_vel"]      = -penalty_ang_vel_scale     *np.sum(np.square(data_gyro))
+        reward_dict["penalty_lin_vel"]      = -penalty_lin_vel_scale     *np.sum(np.square(sim_lin_vel))
+        reward_dict["penalty_joint_torque"] = -penalty_joint_torque_scale*np.sum(np.square(sim_joint_torque))
+        reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale *np.sum(np.abs(sim_joint_torque*data_joint_vel))
+        reward_dict["penalty_leg_torque"]   = -penalty_leg_torque_scale  *       residual_leg_torque
+        reward_dict["penalty_slip"]         = -penalty_slip_scale        *       residual_slip
+        reward_dict["penalty_action"]       = -penalty_action_scale      *np.sum(np.square(action))
+        reward_dict["penalty_action_rate"]  = -penalty_action_rate_scale *np.sum(residual_action)
         reward_dict["penalty_joint_pos_init"]  = -penalty_joint_pos_init_scale*np.sum(residual_pos)
         reward_dict["penalty_joint_pos_init"] *= self.penalty_joint_pos_init_schedule        
         reward = float(sum(reward_dict.values()))

@@ -47,8 +47,8 @@
               contype="0" conaffinity="0"  group="2"/>
         <geom name="forest_wall_front4" type="plane" size="1.5 0.75 0.3" pos="-4.5 6 0.75" euler="1.5708 0 0" material="forest_p1_mat"  
               contype="0" conaffinity="0"  group="2"/>
-        <!--geom name="slope" type="box" size="4.0 4.0 4.0" friction="2.0 0.005 0.0001" rgba="0.3 0.3 0.3 1"
-              pos="0.5 0 -4.0" euler="0.03 -0.10 0.03" group="1"/-->
+        <geom name="slope" type="box" size="4.0 4.0 4.0" friction="2.0 0.005 0.0001" rgba="0.3 0.3 0.3 1"
+              pos="0 0 -4.0" euler="0 0 0" group="1"/>
         <body name="robot_root" pos="0 0 0">
             <freejoint name="root"/>
             <inertial mass="0.001" pos="0 0 0" diaginertia="0.0001 0.0001 0.0001"/>     <!--to avoid 0 mass crash-->
