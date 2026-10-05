@@ -31,7 +31,7 @@ class CubicDoggoEnv(gym.Env):
 
         self.time_per_step     = 0.002   # s, default = 0.002
         self.stepN_per_action  = 4       # steps
-        self.skip_first_stepN  = 4       # steps 
+        self.skip_first_stepN  = 20       # steps 
         self.truncate_max_time = 20.0    # s
         self.text_update_time  = 1.0     # s
         self.last_text_update  = 0.0
@@ -44,7 +44,7 @@ class CubicDoggoEnv(gym.Env):
             self.joint_names.append('servo3_calfFeet_'      +leg_prefix)
 
         xacro_path = os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.urdf.xacro')
-        mjcf_path  = os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml')
+        mjcf_path  = os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_stand_slope.xml')
         usdf_file  =                                      'cubic_doggo.mujoco.urdf'
 
         xacro_raw = xacro.process_file(xacro_path)
@@ -74,6 +74,10 @@ class CubicDoggoEnv(gym.Env):
         if self.mujoco_model.nkey > 0:
             mujoco.mj_resetDataKeyframe(self.mujoco_model, self.mujoco_data, 0)
 
+        self.slope_id        = self.mujoco_model.geom('slope').id
+        self.slope_qpos_id   = self.mujoco_model.jnt_qposadr[mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_JOINT,
+                                                                               "slope_pitch_joint")]
+        self.slope_ctrl_id   = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_ACTUATOR, 'slope_pitch_act') 
         self.root_body_id    = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_BODY, 'robot_root')
         self.mujoco_foot_ids = [mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, 'calfSphere_'+leg_prefix)
                                 for leg_prefix in self.leg_prefixes]
@@ -113,8 +117,8 @@ class CubicDoggoEnv(gym.Env):
         self.init_var_schedule               = 0.0
         self.penalty_joint_pos_init_schedule = 1.0
         self.push_force_schedule             = 0.0
-        self.push_interval_stepN = 5                  # s 
-        self.push_duration_stepN = 0.1                   # s
+        self.push_interval_stepN = 500                  # s 
+        self.push_duration_stepN = 50                   # s
         self.max_push_force      = 15.0                 # N 
         self.step_counter = 0
         self.current_push_force = np.zeros(6)                
@@ -123,10 +127,10 @@ class CubicDoggoEnv(gym.Env):
         self.num_actions = len(self.joint_names)
         self.action_space      = spaces.Box(low=-1.0,    high=1.0,    shape=(self.num_actions,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.obs_dim,), dtype=np.float32)
+        ###
         self.last_joint_vel = np.zeros(self.joint_number)
         self.last_action    = np.zeros(self.action_space.shape, dtype=np.float32)
         self.initial_pose = copy.deepcopy(self.mujoco_data.qpos[-self.joint_number:])
-        self.term_data_roll, self.term_data_pitch, self.term_data_height_low, self.term_data_height_high = False,False,False,False
     def _get_obs(self):
         joint_pos = self.mujoco_data.qpos[-self.joint_number:]
         joint_vel = self.mujoco_data.qvel[-self.joint_number:]
@@ -174,8 +178,7 @@ class CubicDoggoEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
-        print('  roll, pitch, height_low, height_high:', int(self.term_data_roll), int(self.term_data_pitch), 
-                                                         int(self.term_data_height_low), int(self.term_data_height_high))
+        
         self.last_text_update = 0.0
         self.last_joint_vel   = np.zeros(self.joint_number)
         self.last_action      = np.zeros(self.action_space.shape, dtype=np.float32)
@@ -193,6 +196,8 @@ class CubicDoggoEnv(gym.Env):
         if self.init_var_schedule > 0:
             init_joint_pos_var_range   = np.array([-np.pi/18, np.pi/18])
             init_rot_var_range         = np.array([-np.pi,    np.pi])
+            init_slope_tilt_var_range  = np.array([-np.pi/12, np.pi/12])
+            init_slope_shift_var_range = np.array([-0.05, 0.1])       # m
         ##############################################################################
             # pos_var            
             pos_shift = self.np_random.uniform(*(self.init_var_schedule*init_joint_pos_var_range), size=self.joint_number)
@@ -203,6 +208,15 @@ class CubicDoggoEnv(gym.Env):
             angle_q = pinocchio.Quaternion(angle_R)
             angle_q = angle_q*self.base_q
             self.mujoco_data.qpos[3:7] = np.array([angle_q.w, angle_q.x, angle_q.y, angle_q.z], dtype=np.float64)
+            # tilt_var
+            pitch_angle = np.pi/4#self.np_random.uniform(*(self.init_var_schedule*init_slope_tilt_var_range))
+            z_pos_shift = 0.0#self.np_random.uniform(*(self.init_var_schedule*init_slope_shift_var_range))
+            angle_R = pinocchio.rpy.rpyToMatrix(0.0, pitch_angle, 0.0)
+            angle_q = pinocchio.Quaternion(angle_R)
+            box_half_height = self.mujoco_model.geom_size[self.slope_id][2]
+            self.mujoco_data.qpos[self.slope_qpos_id] = pitch_angle
+            self.mujoco_data.ctrl[self.slope_ctrl_id] = pitch_angle
+            #self.mujoco_model.geom_pos[self.slope_id] = [0.0, 0.0, -box_half_height*np.cos(pitch_angle)+z_pos_shift]  
 
         mujoco.mj_kinematics(self.mujoco_model, self.mujoco_data)
         mujoco.mj_forward(   self.mujoco_model, self.mujoco_data)
@@ -214,23 +228,11 @@ class CubicDoggoEnv(gym.Env):
     def step(self, action):
         infos_dict = {}
         target_ctrl = self.initial_pose + action*self.action_scale
-        self.mujoco_data.ctrl[:] = target_ctrl
-       
-        if self.step_counter >= self.push_interval_stepN:
-            force_angle     = self.np_random.uniform(0, 2*np.pi)
-            force_magnitude = self.np_random.uniform(0.0, self.max_push_force)*self.push_force_schedule
-            self.current_push_force[0] = force_magnitude*np.cos(force_angle)
-            self.current_push_force[1] = force_magnitude*np.sin(force_angle)
-            self.current_push_force[2] = 0.0 
-            self.step_counter -= self.push_interval_stepN
-        if self.step_counter >= self.push_duration_stepN:
-            self.current_push_force[:] = 0.0
-        self.mujoco_data.xfrc_applied[self.root_body_id] = self.current_push_force
-        self.step_counter += self.stepN_per_action 
+        self.mujoco_data.ctrl[:-1] = target_ctrl
+        
+        obs_dict = {}
         for _ in range(self.stepN_per_action):
             mujoco.mj_step(self.mujoco_model, self.mujoco_data)
-        ###
-        obs_dict = {}
         observations = self._get_obs()
         data_joint_pos = observations[0:self.joint_number]
         data_joint_vel = observations[self.joint_number:(2*self.joint_number)]
@@ -238,9 +240,22 @@ class CubicDoggoEnv(gym.Env):
         data_roll, data_pitch, data_height = observations[(2*self.joint_number+self.gyro_number):] 
 
         sim_lin_vel      = self.mujoco_data.sensor('linvel').data[:2]       # XY velocity
-        sim_joint_torque = self.mujoco_data.actuator_force[:]
+        sim_joint_torque = self.mujoco_data.actuator_force[:-1]
         sim_leg_torque   = np.sum(np.abs(sim_joint_torque.reshape(4, 3)), axis=1)
-        
+
+        ###
+        step_in_cycle = self.step_counter%self.push_interval_stepN
+        if step_in_cycle == 0:
+            force_angle     = self.np_random.uniform(0, 2*np.pi)
+            force_magnitude = self.np_random.uniform(0.0, self.max_push_force)*self.push_force_schedule
+            self.current_push_force[0] = force_magnitude*np.cos(force_angle)
+            self.current_push_force[1] = force_magnitude*np.sin(force_angle)
+            self.current_push_force[2] = 0.0 
+        elif step_in_cycle >= self.push_duration_stepN:
+            self.current_push_force[:] = 0.0
+        self.mujoco_data.xfrc_applied[self.root_body_id] = self.current_push_force
+        self.step_counter += self.stepN_per_action
+        ###
         for obs_idx in range(len(data_joint_pos)):
             obs_dict["data_joint_pos"+str(obs_idx)] = data_joint_pos[obs_idx]
         for obs_idx in range(len(data_joint_vel)):
@@ -280,11 +295,8 @@ class CubicDoggoEnv(gym.Env):
         penalty_action_scale      = 0.001 
         penalty_action_rate_scale = 0.01
         ############################################################################## termination conditions
-        self.term_data_roll        = (np.pi/6 < abs(data_roll))
-        self.term_data_pitch       = (np.pi/6 < abs(data_pitch))
-        self.term_data_height_low  = (data_height < 0.1)
-        self.term_data_height_high = (0.2 < data_height)
-        terminated = bool(self.term_data_roll or self.term_data_pitch or self.term_data_height_low or self.term_data_height_high)
+        terminated = bool((np.pi/6 < abs(data_roll)) or (np.pi/6 < abs(data_pitch)) or
+                          ((data_height < 0.1) or (0.2 < data_height)))
         truncated = bool(self.mujoco_data.time >= self.truncate_max_time)               # truncated is termination without penalty
         ##############################################################################        
 
@@ -364,34 +376,12 @@ class CubicDoggoEnv(gym.Env):
             #print(telemetry_str) 
             self.last_text_update = copy.deepcopy(self.mujoco_data.time)
         if self.render_mode == "human":
-            self._render_force_arrow()
             self.viewer.sync()
         return observations, reward, terminated, truncated, infos_dict
     def close(self):
         if self.viewer is not None:
             self.viewer.close()
             self.viewer = None
-    def _render_force_arrow(self):
-        if self.viewer is None:
-            return
-        arrow_radius  = 0.008        #m
-        max_arrow_len = 1.0         #m
-        force_xyz = np.array(self.current_push_force[:3], dtype=np.float64)
-        force_mag = float(np.linalg.norm(force_xyz))
-        force_vec = max_arrow_len*force_xyz/self.max_push_force
-
-        viewer_scn = self.viewer.user_scn
-        viewer_scn.ngeom = 0
-
-        start_pos = np.array(self.mujoco_data.xpos[self.root_body_id], dtype=np.float64)
-        if float(np.linalg.norm(force_vec)) < 1e-6:
-            return
-        end_pos = start_pos + force_vec
-        
-        viewer_geom = viewer_scn.geoms[viewer_scn.ngeom]
-        mujoco.mjv_connector(viewer_geom, mujoco.mjtGeom.mjGEOM_ARROW, arrow_radius, start_pos, end_pos)
-        viewer_geom.rgba[:] = np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
-        viewer_scn.ngeom += 1
     def set_obs_noise_schedule(self, new_scale: float):
         self.obs_noise_schedule = new_scale
     def set_init_var_schedule(self, new_scale: float):
@@ -413,7 +403,7 @@ class CurriculumSchedulingCallback(BaseCallback):
         new_scale = min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_obs_noise_schedule", new_scale)
         #init_var
-        new_scale = min(1.0, 2*progress_ratio)
+        new_scale = 1.0#min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_init_var_schedule", new_scale)
         #penalty_joint_pos_init
         decay_rate = 10.0
@@ -421,7 +411,7 @@ class CurriculumSchedulingCallback(BaseCallback):
         new_scale = new_scale if (new_scale > self.scale_thres) else 0.0
         self.training_env.env_method("set_penalty_joint_pos_init_schedule", new_scale)      
         #push_force
-        new_scale = max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
+        new_scale = 0.0#max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
         self.training_env.env_method("set_push_force_schedule", new_scale)
         ############################################################################## 
 
@@ -438,9 +428,9 @@ class CurriculumSchedulingCallback(BaseCallback):
         return True
 ##################################################################################################################################
 def main():
-    render_mode = None
+    #render_mode = None
     policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_1_"
-    #render_mode = "human"
+    render_mode = "human"
     #policy_model_name = "cubic_doggo_stand_261003_3_"
 
     policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", "ppo_tensorboards/")
