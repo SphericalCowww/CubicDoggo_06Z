@@ -14,6 +14,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.logger import Logger, CSVOutputFormat, HumanOutputFormat, TensorBoardOutputFormat
  
 from ._GlobalFuncs import *
 PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
@@ -260,7 +261,7 @@ class CubicDoggoEnv(gym.Env):
             obs_dict["sim_push_force"+str(obs_idx)] = self.current_push_force[obs_idx]
         ############################################################################## reward/penalty parameters
         target_roll, target_pitch = 0.0, 0.0
-        target_height             = 0.15
+        target_height             = 0.14984        #0.15689 for previleged
 
         reward_roll_pitch_scale = 1.0
         reward_roll_pitch_sigma = 0.05
@@ -273,7 +274,7 @@ class CubicDoggoEnv(gym.Env):
         penalty_lin_vel_scale        = 0.5
         penalty_joint_torque_scale   = 1.0E-4
         penalty_joint_power_scale    = 2.0E-4     
-        penalty_leg_torque_scale     = 0.1
+        penalty_leg_torque_scale     = 0.01
         penalty_slip_scale           = 0.0
         penalty_joint_pos_init_scale = 0.1
 
@@ -282,8 +283,8 @@ class CubicDoggoEnv(gym.Env):
         ############################################################################## termination conditions
         self.term_data_roll        = (np.pi/6 < abs(data_roll))
         self.term_data_pitch       = (np.pi/6 < abs(data_pitch))
-        self.term_data_height_low  = (data_height < 0.1)
-        self.term_data_height_high = (0.2 < data_height)
+        self.term_data_height_low  = (data_height < target_height-0.05)
+        self.term_data_height_high = (target_height+0.05 < data_height)
         terminated = bool(self.term_data_roll or self.term_data_pitch or self.term_data_height_low or self.term_data_height_high)
         truncated = bool(self.mujoco_data.time >= self.truncate_max_time)               # truncated is termination without penalty
         ##############################################################################        
@@ -410,10 +411,10 @@ class CurriculumSchedulingCallback(BaseCallback):
 
         ############################################################################## curriculum scheduling
         #obs_noise
-        new_scale = min(1.0, 2*progress_ratio)
+        new_scale = 0.0#min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_obs_noise_schedule", new_scale)
         #init_var
-        new_scale = min(1.0, 2*progress_ratio)
+        new_scale = 0.0#min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_init_var_schedule", new_scale)
         #penalty_joint_pos_init
         decay_rate = 10.0
@@ -421,7 +422,7 @@ class CurriculumSchedulingCallback(BaseCallback):
         new_scale = new_scale if (new_scale > self.scale_thres) else 0.0
         self.training_env.env_method("set_penalty_joint_pos_init_schedule", new_scale)      
         #push_force
-        new_scale = max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
+        new_scale = 0.0#max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
         self.training_env.env_method("set_push_force_schedule", new_scale)
         ############################################################################## 
 
@@ -455,11 +456,9 @@ def main():
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ############################################################################## visualization or headless
     rand_seed       = 1
-    ppo_checkpointN = 40
+    ppo_checkpointN = 10
     ppo_stepN       = 1_000_000                             # minimum is n_envs*n_steps, 16*2048 = 32768
     if render_mode == "human":
-        #policy_model_file = None
-        #policy_model_file = policy_model_path + "cubic_doggo_stand_260928_2_10.zip"
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
         reset_num_timesteps = False#True
     else:
@@ -488,8 +487,7 @@ def main():
                         batch_size=128,
                         n_epochs=10,
                         gamma=0.99,
-                        gae_lambda=0.95,
-                        tensorboard_log=policy_model_path)
+                        gae_lambda=0.95)
     else:
         print("cubic_doggo_mujoco_stand_ppo(): continuing PPO model:", policy_model_file)
         ppo_env = VecNormalize.load(policy_model_file.replace(".zip", "_vec_norm.pkl"), ppo_env)
@@ -497,13 +495,18 @@ def main():
                              env=ppo_env, 
                              device="cpu",
                              verbose=1,
-                             seed=rand_seed,
-                             tensorboard_log=policy_model_path)    
+                             seed=rand_seed)
 
     print("cubic_doggo_mujoco_stand_ppo(): start training, with "+str(n_envs)+" CPU cores...")
     start_time = time.time()
     for ppo_idx in range(ppo_checkpointN-policy_model_idx+int(render_mode == "human")):
         ppo_checkpoint_idx = ppo_idx + policy_model_idx + 1 
+        ppo_model_save_name = policy_model_path + policy_model_name + str(ppo_checkpoint_idx)
+
+        log_writers = [HumanOutputFormat(sys.stdout),
+                       TensorBoardOutputFormat(ppo_model_save_name),
+                       CSVOutputFormat(ppo_model_save_name + "_log.csv")]
+        ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=(ppo_stepN*ppo_checkpointN))
         ppo_model.learn(total_timesteps=ppo_stepN, 
                         callback=curriculum_callback,
@@ -511,7 +514,6 @@ def main():
                         tb_log_name=policy_model_name)
         elapsed_time = time.time() - start_time
         if getattr(ppo_env, "render_mode", None) != "human":
-            ppo_model_save_name = policy_model_path + policy_model_name + str(ppo_checkpoint_idx)
             ppo_model.save(ppo_model_save_name)
             ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
             print("cubic_doggo_mujoco_stand_ppo(): model saved:",                ppo_model_save_name+".zip")
