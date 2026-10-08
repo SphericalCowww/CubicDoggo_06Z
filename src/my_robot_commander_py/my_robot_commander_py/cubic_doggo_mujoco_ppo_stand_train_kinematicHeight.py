@@ -114,13 +114,15 @@ class CubicDoggoEnv(gym.Env):
         self.init_var_schedule               = 0.0
         self.penalty_joint_pos_init_schedule = 1.0
         self.push_force_schedule             = 0.0
-        self.push_interval_stepN = 5                  # s 
-        self.push_duration_stepN = 0.1                   # s
-        self.max_push_force      = 15.0                 # N 
-        self.step_counter = 0
-        self.current_push_force = np.zeros(6)                
+        self.push_interval  = 5                    # s 
+        self.push_duration  = 0.1                  # s
+        self.push_force_max = 15.0                 # N 
+        self.push_force_vec = np.zeros(6)                
+        self.last_push_time = 0
         ###
-        self.action_scale = 0.2
+        self.action_range       = [-1.0,  1.0]
+        self.action_delta_range = [-0.05, 0.05]
+        self.action_scale       = 0.2
         self.num_actions = len(self.joint_names)
         self.action_space      = spaces.Box(low=-1.0,    high=1.0,    shape=(self.num_actions,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.obs_dim,), dtype=np.float32)
@@ -134,7 +136,6 @@ class CubicDoggoEnv(gym.Env):
         imu_gyro  = self.mujoco_data.sensor('gyro').data
         quat_data = self.mujoco_data.sensor('quat').data
         imu_roll_rad, imu_pitch_rad, _ = quat2euler(*quat_data)
-
         ############################################################################## observable domain randomization
         if self.obs_noise_schedule > 0:
             dom_rand_joint_pos_scale      = 0.01
@@ -177,6 +178,7 @@ class CubicDoggoEnv(gym.Env):
         print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
         print('  roll, pitch, height_low, height_high:', int(self.term_data_roll), int(self.term_data_pitch), 
                                                          int(self.term_data_height_low), int(self.term_data_height_high))
+        self.term_data_roll, self.term_data_pitch, self.term_data_height_low, self.term_data_height_high = False,False,False,False
         self.last_text_update = 0.0
         self.last_joint_vel   = np.zeros(self.joint_number)
         self.last_action      = np.zeros(self.action_space.shape, dtype=np.float32)
@@ -186,9 +188,8 @@ class CubicDoggoEnv(gym.Env):
         else:
             self.mujoco_data.qpos[:] = self.mujoco_model.qpos0
             self.mujoco_data.qvel[:] = 0.0
-        ###
-        self.step_counter                                = 0
-        self.current_push_force[:]                       = 0.0
+        self.last_push_time                              = 0.0
+        self.push_force_vec[:]                           = 0.0
         self.mujoco_data.xfrc_applied[self.root_body_id] = 0.0
         ############################################################################## initial state domain randomization
         if self.init_var_schedule > 0:
@@ -205,29 +206,38 @@ class CubicDoggoEnv(gym.Env):
             angle_q = angle_q*self.base_q
             self.mujoco_data.qpos[3:7] = np.array([angle_q.w, angle_q.x, angle_q.y, angle_q.z], dtype=np.float64)
 
+        if self.skip_first_stepN > 0:
+            for _ in range(self.skip_first_stepN):
+                self.mujoco_data.ctrl[:] = self.initial_pose
+                mujoco.mj_step(self.mujoco_model, self.mujoco_data)
         mujoco.mj_kinematics(self.mujoco_model, self.mujoco_data)
         mujoco.mj_forward(   self.mujoco_model, self.mujoco_data)
-        for _ in range(self.skip_first_stepN):
-            mujoco.mj_step(self.mujoco_model, self.mujoco_data)
         if (self.render_mode == "human") and (self.viewer is not None):
             self.viewer.sync() 
         return self._get_obs(), {}
     def step(self, action):
         infos_dict = {}
+        current_time = self.mujoco_data.time
+        action = np.clip(action, *self.action_range)
+        if np.sum(self.last_action) != 0:
+            action_delta = action - self.last_action
+            action_delta = np.clip(action_delta, *self.action_delta_range)
+            action = self.last_action + action_delta
         target_ctrl = self.initial_pose + action*self.action_scale
         self.mujoco_data.ctrl[:] = target_ctrl
-       
-        if self.step_counter >= self.push_interval_stepN:
-            force_angle     = self.np_random.uniform(0, 2*np.pi)
-            force_magnitude = self.np_random.uniform(0.0, self.max_push_force)*self.push_force_schedule
-            self.current_push_force[0] = force_magnitude*np.cos(force_angle)
-            self.current_push_force[1] = force_magnitude*np.sin(force_angle)
-            self.current_push_force[2] = 0.0 
-            self.step_counter -= self.push_interval_stepN
-        if self.step_counter >= self.push_duration_stepN:
-            self.current_push_force[:] = 0.0
-        self.mujoco_data.xfrc_applied[self.root_body_id] = self.current_push_force
-        self.step_counter += self.stepN_per_action 
+
+        if self.push_force_schedule > 0:
+            if (current_time - self.last_push_time) >= self.push_interval:
+                force_angle     = self.np_random.uniform(0, 2*np.pi)
+                force_magnitude = self.np_random.uniform(0.0, self.push_force_max)*self.push_force_schedule
+                self.push_force_vec[0] = force_magnitude*np.cos(force_angle)
+                self.push_force_vec[1] = force_magnitude*np.sin(force_angle)
+                self.push_force_vec[2] = 0.0 
+                self.last_push_time = current_time
+            if (current_time - self.last_push_time) >= self.push_duration:
+                self.push_force_vec[:] = 0.0
+            self.mujoco_data.xfrc_applied[self.root_body_id] = self.push_force_vec
+    
         for _ in range(self.stepN_per_action):
             mujoco.mj_step(self.mujoco_model, self.mujoco_data)
         ###
@@ -257,8 +267,8 @@ class CubicDoggoEnv(gym.Env):
             obs_dict["sim_joint_torque"+str(obs_idx)] = sim_joint_torque[obs_idx]
         for obs_idx in range(len(sim_leg_torque)):
             obs_dict["sim_leg_torque"+str(obs_idx)] = sim_leg_torque[obs_idx]
-        for obs_idx in range(len(self.current_push_force)):
-            obs_dict["sim_push_force"+str(obs_idx)] = self.current_push_force[obs_idx]
+        for obs_idx in range(len(self.push_force_vec)):
+            obs_dict["sim_push_force"+str(obs_idx)] = self.push_force_vec[obs_idx]
         ############################################################################## reward/penalty parameters
         target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.14984        #0.15689 for previleged
@@ -266,7 +276,7 @@ class CubicDoggoEnv(gym.Env):
         reward_roll_pitch_scale = 1.0
         reward_roll_pitch_sigma = 0.05
         reward_height_scale     = 1.0
-        reward_height_sigma     = 0.05
+        reward_height_sigma     = 0.08
         penalty_joint_vel_scale = 1.0E-4
         penalty_joint_acc_scale = 2.5E-7
         penalty_ang_vel_scale   = 0.05
@@ -334,8 +344,8 @@ class CubicDoggoEnv(gym.Env):
         reward_dict["penalty_lin_vel"]      = -penalty_lin_vel_scale     *np.sum(np.square(sim_lin_vel))
         reward_dict["penalty_joint_torque"] = -penalty_joint_torque_scale*np.sum(np.square(sim_joint_torque))
         reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale *np.sum(np.abs(sim_joint_torque*data_joint_vel))
-        reward_dict["penalty_leg_torque"]   = -penalty_leg_torque_scale  *       residual_leg_torque
-        reward_dict["penalty_slip"]         = -penalty_slip_scale        *       residual_slip
+        reward_dict["penalty_leg_torque"]   = -penalty_leg_torque_scale  *residual_leg_torque
+        reward_dict["penalty_slip"]         = -penalty_slip_scale        *residual_slip
         reward_dict["penalty_action"]       = -penalty_action_scale      *np.sum(np.square(action))
         reward_dict["penalty_action_rate"]  = -penalty_action_rate_scale *np.sum(residual_action)
         reward_dict["penalty_joint_pos_init"]  = -penalty_joint_pos_init_scale*np.sum(residual_pos)
@@ -377,9 +387,9 @@ class CubicDoggoEnv(gym.Env):
             return
         arrow_radius  = 0.008        #m
         max_arrow_len = 1.0         #m
-        force_xyz = np.array(self.current_push_force[:3], dtype=np.float64)
+        force_xyz = np.array(self.push_force_vec[:3], dtype=np.float64)
         force_mag = float(np.linalg.norm(force_xyz))
-        force_vec = max_arrow_len*force_xyz/self.max_push_force
+        force_vec = max_arrow_len*force_xyz/self.push_force_max
 
         viewer_scn = self.viewer.user_scn
         viewer_scn.ngeom = 0
@@ -452,6 +462,7 @@ def main():
     #default_policy_kwargs = dict(activation_fn=torch.nn.Tanh,
     #                             net_arch=[dict(pi=[64, 64], vf=[64, 64])])
     policy_kwargs = dict(activation_fn=torch.nn.ReLU,
+                         ortho_init=True,
                          net_arch=dict(pi=[256, 256, 128],                  # Policy/Actor network layers
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ############################################################################## visualization or headless
@@ -504,7 +515,7 @@ def main():
         ppo_model_save_name = policy_model_path + policy_model_name + str(ppo_checkpoint_idx)
 
         log_writers = [HumanOutputFormat(sys.stdout),
-                       TensorBoardOutputFormat(ppo_model_save_name),
+                       TensorBoardOutputFormat(policy_model_path + policy_model_name),
                        CSVOutputFormat(ppo_model_save_name + "_log.csv")]
         ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=(ppo_stepN*ppo_checkpointN))
