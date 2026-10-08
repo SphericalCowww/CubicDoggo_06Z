@@ -30,7 +30,7 @@ class CubicDoggoEnv(gym.Env):
         self.gyro_number  = 3 
         self.obs_dim      = self.joint_number + self.joint_number + self.gyro_number + 2 + 1
 
-        self.time_per_step     = 0.002   # s, default = 0.002
+        self.time_per_step     = 0.003   # s, default = 0.002
         self.stepN_per_action  = 4       # steps
         self.skip_first_stepN  = 4       # steps 
         self.truncate_max_time = 20.0    # s
@@ -129,7 +129,10 @@ class CubicDoggoEnv(gym.Env):
         self.last_joint_vel = np.zeros(self.joint_number)
         self.last_action    = np.zeros(self.action_space.shape, dtype=np.float32)
         self.initial_ctrl   = copy.deepcopy(self.mujoco_data.ctrl)
-        self.term_data_roll, self.term_data_pitch, self.term_data_height_low, self.term_data_height_high = False,False,False,False
+        self.term_time = 0
+        self.term_keys = ["roll", "pitch", "height_low", "height_high"]
+        self.term_data = {term_key:False for term_key in self.term_keys}
+        self.reset_counters = np.zeros(1 + len(self.term_keys), dtype=np.int64)
     def _get_obs(self):
         joint_pos = self.mujoco_data.qpos[-self.joint_number:]
         joint_vel = self.mujoco_data.qvel[-self.joint_number:]
@@ -175,10 +178,14 @@ class CubicDoggoEnv(gym.Env):
         return observations
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
-        print('  roll, pitch, height_low, height_high:', int(self.term_data_roll), int(self.term_data_pitch), 
-                                                         int(self.term_data_height_low), int(self.term_data_height_high))
-        self.term_data_roll, self.term_data_pitch, self.term_data_height_low, self.term_data_height_high = False,False,False,False
+        #print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
+        self.term_time = self.mujoco_data.time
+        self.reset_counters[-1] += 1
+        for term_idx, term_key in enumerate(self.term_keys):
+            #print('  '+term_key+':', self.term_data[term_key])    
+            if self.term_data[term_key] == True:
+                self.reset_counters[term_idx] += 1
+            self.term_data[term_key] = False
         self.last_text_update = 0.0
         self.last_joint_vel   = np.zeros(self.joint_number)
         self.last_action      = np.zeros(self.action_space.shape, dtype=np.float32)
@@ -291,11 +298,12 @@ class CubicDoggoEnv(gym.Env):
         penalty_action_scale      = 0.001 
         penalty_action_rate_scale = 0.01
         ############################################################################## termination conditions
-        self.term_data_roll        = (np.pi/6 < abs(data_roll))
-        self.term_data_pitch       = (np.pi/6 < abs(data_pitch))
-        self.term_data_height_low  = (data_height < target_height-0.05)
-        self.term_data_height_high = (target_height+0.05 < data_height)
-        terminated = bool(self.term_data_roll or self.term_data_pitch or self.term_data_height_low or self.term_data_height_high)
+        self.term_data["roll"]        = (np.pi/6 < abs(data_roll))
+        self.term_data["pitch"]       = (np.pi/6 < abs(data_pitch))
+        self.term_data["height_low"]  = (data_height < target_height-0.05)
+        self.term_data["height_high"] = (target_height+0.05 < data_height)
+        terminated = bool(self.term_data["roll"]       or self.term_data["pitch"] or 
+                          self.term_data["height_low"] or self.term_data["height_high"])
         truncated = bool(self.mujoco_data.time >= self.truncate_max_time)               # truncated is termination without penalty
         ##############################################################################        
 
@@ -403,6 +411,14 @@ class CubicDoggoEnv(gym.Env):
         mujoco.mjv_connector(viewer_geom, mujoco.mjtGeom.mjGEOM_ARROW, arrow_radius, start_pos, end_pos)
         viewer_geom.rgba[:] = np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
         viewer_scn.ngeom += 1
+    ###
+    def get_term_time(self):
+        return self.term_time
+    def get_reset_counters(self) -> np.ndarray:
+        return self.reset_counters
+    def set_reset_counters(self, counters: list):
+        self.reset_counters = np.array(counters, dtype=np.int64)
+    ###
     def set_obs_noise_schedule(self, new_scale: float):
         self.obs_noise_schedule = new_scale
     def set_init_var_schedule(self, new_scale: float):
@@ -419,12 +435,13 @@ class CurriculumSchedulingCallback(BaseCallback):
     def _on_step(self) -> bool:
         progress_ratio = self.num_timesteps/self.total_timesteps
 
+
         ############################################################################## curriculum scheduling
         #obs_noise
-        new_scale = 0.0#min(1.0, 2*progress_ratio)
+        new_scale = min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_obs_noise_schedule", new_scale)
         #init_var
-        new_scale = 0.0#min(1.0, 2*progress_ratio)
+        new_scale = min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_init_var_schedule", new_scale)
         #penalty_joint_pos_init
         decay_rate = 5.0
@@ -434,8 +451,18 @@ class CurriculumSchedulingCallback(BaseCallback):
         #push_force
         new_scale = 0.0#max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
         self.training_env.env_method("set_push_force_schedule", new_scale)
-        ############################################################################## 
-
+        ##############################################################################
+        term_time = np.mean(self.training_env.env_method("get_term_time"))
+        self.logger.record("rollout/ep_len_time", term_time)
+        ###
+        total_counters = sum(self.training_env.env_method("get_reset_counters"))
+        total_resets = total_counters[4] if total_counters[4] > 0 else 1
+        self.logger.record("z_reward_ratios/termination_roll",        float(total_counters[0])/total_resets)
+        self.logger.record("z_reward_ratios/termination_pitch",       float(total_counters[1])/total_resets)
+        self.logger.record("z_reward_ratios/termination_height_low",  float(total_counters[2])/total_resets)
+        self.logger.record("z_reward_ratios/termination_height_high", float(total_counters[3])/total_resets)
+        self.logger.record("z_reward_ratios/termination_total",       total_counters[4])
+        ###
         infos = self.locals.get("infos")
         if infos and "obs_dict" in infos[0]:
             for reward_key, reward_val in infos[0]["obs_dict"].items():
@@ -450,7 +477,7 @@ class CurriculumSchedulingCallback(BaseCallback):
 ##################################################################################################################################
 def main():
     render_mode = None
-    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_1_"
+    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_2_"
     #render_mode = "human"
     #policy_model_name = "cubic_doggo_stand_261003_3_"
 
@@ -507,6 +534,10 @@ def main():
                              device="cpu",
                              verbose=1,
                              seed=rand_seed)
+        if hasattr(ppo_model.policy, "user_data") and "reset_counters" in ppo_model.policy.user_data:
+            saved_counters = ppo_model.policy.user_data["reset_counters"]
+            counters_per_env = (np.array(saved_counters) // ppo_env.num_envs).tolist()
+            ppo_env.env_method("set_reset_counters", counters_per_env)
 
     print("cubic_doggo_mujoco_stand_ppo(): start training, with "+str(n_envs)+" CPU cores...")
     start_time = time.time()
@@ -525,6 +556,8 @@ def main():
                         tb_log_name=policy_model_name)
         elapsed_time = time.time() - start_time
         if getattr(ppo_env, "render_mode", None) != "human":
+            total_counters             = sum(ppo_env.env_method("get_reset_counters"))
+            ppo_model.policy.user_data = {"reset_counters": total_counters.tolist()}
             ppo_model.save(ppo_model_save_name)
             ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
             print("cubic_doggo_mujoco_stand_ppo(): model saved:",                ppo_model_save_name+".zip")
