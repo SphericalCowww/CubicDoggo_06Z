@@ -128,7 +128,7 @@ class CubicDoggoEnv(gym.Env):
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.obs_dim,), dtype=np.float32)
         self.last_joint_vel = np.zeros(self.joint_number)
         self.last_action    = np.zeros(self.action_space.shape, dtype=np.float32)
-        self.initial_pose = copy.deepcopy(self.mujoco_data.qpos[-self.joint_number:])
+        self.initial_ctrl   = copy.deepcopy(self.mujoco_data.ctrl)
         self.term_data_roll, self.term_data_pitch, self.term_data_height_low, self.term_data_height_high = False,False,False,False
     def _get_obs(self):
         joint_pos = self.mujoco_data.qpos[-self.joint_number:]
@@ -208,7 +208,7 @@ class CubicDoggoEnv(gym.Env):
 
         if self.skip_first_stepN > 0:
             for _ in range(self.skip_first_stepN):
-                self.mujoco_data.ctrl[:] = self.initial_pose
+                self.mujoco_data.ctrl[:] = self.initial_ctrl
                 mujoco.mj_step(self.mujoco_model, self.mujoco_data)
         mujoco.mj_kinematics(self.mujoco_model, self.mujoco_data)
         mujoco.mj_forward(   self.mujoco_model, self.mujoco_data)
@@ -223,7 +223,7 @@ class CubicDoggoEnv(gym.Env):
             action_delta = action - self.last_action
             action_delta = np.clip(action_delta, *self.action_delta_range)
             action = self.last_action + action_delta
-        target_ctrl = self.initial_pose + action*self.action_scale
+        target_ctrl = self.initial_ctrl + action*self.action_scale
         self.mujoco_data.ctrl[:] = target_ctrl
 
         if self.push_force_schedule > 0:
@@ -276,7 +276,7 @@ class CubicDoggoEnv(gym.Env):
         reward_roll_pitch_scale = 1.0
         reward_roll_pitch_sigma = 0.05
         reward_height_scale     = 1.0
-        reward_height_sigma     = 0.08
+        reward_height_sigma     = 0.05
         penalty_joint_vel_scale = 1.0E-4
         penalty_joint_acc_scale = 2.5E-7
         penalty_ang_vel_scale   = 0.05
@@ -284,7 +284,7 @@ class CubicDoggoEnv(gym.Env):
         penalty_lin_vel_scale        = 0.5
         penalty_joint_torque_scale   = 1.0E-4
         penalty_joint_power_scale    = 2.0E-4     
-        penalty_leg_torque_scale     = 0.01
+        penalty_leg_torque_scale     = 0.1
         penalty_slip_scale           = 0.0
         penalty_joint_pos_init_scale = 0.1
 
@@ -303,7 +303,7 @@ class CubicDoggoEnv(gym.Env):
         residual_pitch       = np.square(data_pitch - target_pitch)
         residual_orientation = residual_roll + residual_pitch
         residual_height      = np.square(data_height - target_height)
-        residual_pos         = np.square(data_joint_pos - self.initial_pose)
+        residual_pos         = np.square(data_joint_pos - self.initial_ctrl)
         residual_leg_torque  = np.std(sim_leg_torque)
         residual_vel         = 0.0
         residual_action      = 0.0
@@ -427,7 +427,7 @@ class CurriculumSchedulingCallback(BaseCallback):
         new_scale = 0.0#min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_init_var_schedule", new_scale)
         #penalty_joint_pos_init
-        decay_rate = 10.0
+        decay_rate = 5.0
         new_scale = np.exp(-decay_rate*progress_ratio)
         new_scale = new_scale if (new_scale > self.scale_thres) else 0.0
         self.training_env.env_method("set_penalty_joint_pos_init_schedule", new_scale)      
@@ -516,7 +516,7 @@ def main():
 
         log_writers = [HumanOutputFormat(sys.stdout),
                        TensorBoardOutputFormat(policy_model_path + policy_model_name),
-                       CSVOutputFormat(ppo_model_save_name + "_log.csv")]
+                       CSVOutputFormat(policy_model_path + policy_model_name + "_log.csv")]
         ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=(ppo_stepN*ppo_checkpointN))
         ppo_model.learn(total_timesteps=ppo_stepN, 
