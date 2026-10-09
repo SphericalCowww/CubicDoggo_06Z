@@ -112,6 +112,7 @@ class CubicDoggoEnv(gym.Env):
         ###
         self.obs_noise_schedule              = 0.0
         self.init_var_schedule               = 0.0
+        self.tightener_schedule              = 1.0
         self.penalty_joint_pos_init_schedule = 1.0
         self.push_force_schedule             = 0.0
         self.push_interval  = 5                    # s 
@@ -120,9 +121,10 @@ class CubicDoggoEnv(gym.Env):
         self.push_force_vec = np.zeros(6)                
         self.last_push_time = 0
         ###
-        self.action_range       = [-1.0,  1.0]
-        self.action_delta_range = [-0.05, 0.05]
-        self.action_scale       = 0.2
+        self.action_range        = [-1.0,  1.0]
+        self.action_delta_range  = [-0.05, 0.05]
+        self.action_filter_alpha = 0.2
+        self.action_scale        = 0.2
         self.num_actions = len(self.joint_names)
         self.action_space      = spaces.Box(low=-1.0,    high=1.0,    shape=(self.num_actions,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.obs_dim,), dtype=np.float32)
@@ -200,8 +202,8 @@ class CubicDoggoEnv(gym.Env):
         self.mujoco_data.xfrc_applied[self.root_body_id] = 0.0
         ############################################################################## initial state domain randomization
         if self.init_var_schedule > 0:
-            init_joint_pos_var_range   = np.array([-np.pi/18, np.pi/18])
-            init_rot_var_range         = np.array([-np.pi,    np.pi])
+            init_joint_pos_var_range   = np.array([-np.pi/180, np.pi/180])
+            init_rot_var_range         = np.array([-np.pi,     np.pi])
         ##############################################################################
             # pos_var            
             pos_shift = self.np_random.uniform(*(self.init_var_schedule*init_joint_pos_var_range), size=self.joint_number)
@@ -230,7 +232,8 @@ class CubicDoggoEnv(gym.Env):
             action_delta = action - self.last_action
             action_delta = np.clip(action_delta, *self.action_delta_range)
             action = self.last_action + action_delta
-        target_ctrl = self.initial_ctrl + action*self.action_scale
+        filtered_action = self.action_filter_alpha*action + (1.0 - self.action_filter_alpha)*self.last_action   #low pass filter
+        target_ctrl = self.initial_ctrl + filtered_action*self.action_scale
         self.mujoco_data.ctrl[:] = target_ctrl
 
         if self.push_force_schedule > 0:
@@ -281,17 +284,18 @@ class CubicDoggoEnv(gym.Env):
         target_height             = 0.14984        #0.15689 for previleged
 
         reward_roll_pitch_scale = 1.0
-        reward_roll_pitch_sigma = 0.05
+        reward_roll_pitch_sigma = 0.05          /self.tightener_schedule
         reward_height_scale     = 1.0
-        reward_height_sigma     = 0.05
+        reward_height_sigma     = 0.05          /self.tightener_schedule
         penalty_joint_vel_scale = 1.0E-4
         penalty_joint_acc_scale = 2.5E-7
-        penalty_ang_vel_scale   = 0.05
+        penalty_ang_vel_scale   = 0.05          *self.tightener_schedule
+        penalty_yaw_rate_scale  = 0.1           *self.tightener_schedule
 
-        penalty_lin_vel_scale        = 0.5
+        penalty_lin_vel_scale        = 0.5      *self.tightener_schedule
         penalty_joint_torque_scale   = 1.0E-4
         penalty_joint_power_scale    = 2.0E-4     
-        penalty_leg_torque_scale     = 0.1
+        penalty_leg_torque_scale     = 0.1      *self.tightener_schedule
         penalty_slip_scale           = 0.0
         penalty_joint_pos_init_scale = 0.1
 
@@ -316,10 +320,10 @@ class CubicDoggoEnv(gym.Env):
         residual_vel         = 0.0
         residual_action      = 0.0
         residual_slip        = 0.0
-        if hasattr(self, 'last_joint_vel') and self.last_joint_vel is not None:
+        if np.sum(self.last_joint_vel) != 0:
             joint_acc = (data_joint_vel - self.last_joint_vel)/(self.mujoco_model.opt.timestep*self.stepN_per_action)
             residual_vel = np.square(joint_acc)
-        if self.last_action is not None:
+        if np.sum(self.last_action) != 0:
             residual_action = np.square(action - self.last_action)
         
         foot_contacts = [False]*len(self.leg_prefixes)
@@ -349,6 +353,7 @@ class CubicDoggoEnv(gym.Env):
         reward_dict["penalty_joint_vel"]    = -penalty_joint_vel_scale   *np.sum(np.square(data_joint_vel))
         reward_dict["penalty_joint_acc"]    = -penalty_joint_acc_scale   *np.sum(residual_vel)
         reward_dict["penalty_ang_vel"]      = -penalty_ang_vel_scale     *np.sum(np.square(data_gyro))
+        reward_dict["penalty_yaw_rate"]     = -penalty_yaw_rate_scale    *np.square(data_gyro[2])
         reward_dict["penalty_lin_vel"]      = -penalty_lin_vel_scale     *np.sum(np.square(sim_lin_vel))
         reward_dict["penalty_joint_torque"] = -penalty_joint_torque_scale*np.sum(np.square(sim_joint_torque))
         reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale *np.sum(np.abs(sim_joint_torque*data_joint_vel))
@@ -423,6 +428,8 @@ class CubicDoggoEnv(gym.Env):
         self.obs_noise_schedule = new_scale
     def set_init_var_schedule(self, new_scale: float):
         self.init_var_schedule = new_scale
+    def set_tightener_schedule(self, new_scale: float):
+        self.tightener_schedule = new_scale
     def set_penalty_joint_pos_init_schedule(self, new_scale: float):
         self.penalty_joint_pos_init_schedule = new_scale
     def set_push_force_schedule(self, new_scale: float):
@@ -437,31 +444,37 @@ class CurriculumSchedulingCallback(BaseCallback):
 
 
         ############################################################################## curriculum scheduling
-        #obs_noise
+        # obs_noise
         new_scale = min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_obs_noise_schedule", new_scale)
-        #init_var
+        # init_var
         new_scale = min(1.0, 2*progress_ratio)
         self.training_env.env_method("set_init_var_schedule", new_scale)
-        #penalty_joint_pos_init
+        # tightener
+        y_final_val       = 2.0
+        x_mid_point       = 0.4
+        sigmoid_steepness = 12.0
+        new_scale = 1.0 + (y_final_val - 1.0)/(1.0 + np.exp(-sigmoid_steepness*(progress_ratio - x_mid_point)))
+        self.training_env.env_method("set_tightener_schedule", new_scale)
+        # penalty_joint_pos_init
         decay_rate = 5.0
         new_scale = np.exp(-decay_rate*progress_ratio)
         new_scale = new_scale if (new_scale > self.scale_thres) else 0.0
         self.training_env.env_method("set_penalty_joint_pos_init_schedule", new_scale)      
-        #push_force
+        # push_force
         new_scale = 0.0#max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
         self.training_env.env_method("set_push_force_schedule", new_scale)
         ##############################################################################
         term_time = np.mean(self.training_env.env_method("get_term_time"))
         self.logger.record("rollout/ep_len_time", term_time)
         ###
-        total_counters = sum(self.training_env.env_method("get_reset_counters"))
-        total_resets = total_counters[4] if total_counters[4] > 0 else 1
-        self.logger.record("z_reward_ratios/termination_roll",        float(total_counters[0])/total_resets)
-        self.logger.record("z_reward_ratios/termination_pitch",       float(total_counters[1])/total_resets)
-        self.logger.record("z_reward_ratios/termination_height_low",  float(total_counters[2])/total_resets)
-        self.logger.record("z_reward_ratios/termination_height_high", float(total_counters[3])/total_resets)
-        self.logger.record("z_reward_ratios/termination_total",       total_counters[4])
+        reset_counters = sum(self.training_env.env_method("get_reset_counters"))
+        total_resets = reset_counters[-1] if reset_counters[-1] > 0 else 1
+        self.logger.record("z_reward_ratios/termination_roll",        float(reset_counters[0])/total_resets)
+        self.logger.record("z_reward_ratios/termination_pitch",       float(reset_counters[1])/total_resets)
+        self.logger.record("z_reward_ratios/termination_height_low",  float(reset_counters[2])/total_resets)
+        self.logger.record("z_reward_ratios/termination_height_high", float(reset_counters[3])/total_resets)
+        self.logger.record("z_reward_ratios/termination_total",       reset_counters[-1])
         ###
         infos = self.locals.get("infos")
         if infos and "obs_dict" in infos[0]:
@@ -479,7 +492,7 @@ def main():
     render_mode = None
     policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_2_"
     #render_mode = "human"
-    #policy_model_name = "cubic_doggo_stand_261003_3_"
+    #policy_model_name = "cubic_doggo_stand_261008_1_"
 
     policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", "ppo_tensorboards/")
     os.makedirs(policy_model_path, exist_ok=True)
@@ -494,7 +507,7 @@ def main():
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ############################################################################## visualization or headless
     rand_seed       = 1
-    ppo_checkpointN = 10
+    ppo_checkpointN = 20
     ppo_stepN       = 1_000_000                             # minimum is n_envs*n_steps, 16*2048 = 32768
     if render_mode == "human":
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
@@ -556,7 +569,7 @@ def main():
                         tb_log_name=policy_model_name)
         elapsed_time = time.time() - start_time
         if getattr(ppo_env, "render_mode", None) != "human":
-            total_counters             = sum(ppo_env.env_method("get_reset_counters"))
+            total_counters = sum(ppo_env.env_method("get_reset_counters"))
             ppo_model.policy.user_data = {"reset_counters": total_counters.tolist()}
             ppo_model.save(ppo_model_save_name)
             ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
