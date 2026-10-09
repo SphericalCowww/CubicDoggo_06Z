@@ -112,7 +112,7 @@ class CubicDoggoEnv(gym.Env):
         ###
         self.obs_noise_schedule              = 0.0
         self.init_var_schedule               = 0.0
-        self.tightener_schedule              = 1.0
+        self.rew_pen_schedule                = 1.0
         self.penalty_joint_pos_init_schedule = 1.0
         self.push_force_schedule             = 0.0
         self.push_interval  = 5                    # s 
@@ -143,10 +143,10 @@ class CubicDoggoEnv(gym.Env):
         imu_roll_rad, imu_pitch_rad, _ = quat2euler(*quat_data)
         ############################################################################## observable domain randomization
         if self.obs_noise_schedule > 0:
-            dom_rand_joint_pos_scale      = 0.01
-            dom_rand_joint_vec_scale      = 0.50
-            dom_rand_imu_gyro_scale       = 0.02
-            dom_rand_imu_roll_pitch_scale = 0.01
+            dom_rand_joint_pos_scale      = np.pi/180
+            dom_rand_joint_vec_scale      = np.pi/30
+            dom_rand_imu_gyro_scale       = np.pi/90
+            dom_rand_imu_roll_pitch_scale = np.pi/180
         ##############################################################################
             joint_pos += self.np_random.normal(0.0, dom_rand_joint_pos_scale*self.obs_noise_schedule, size=self.joint_number)
             joint_vel += self.np_random.normal(0.0, dom_rand_joint_vec_scale*self.obs_noise_schedule, size=self.joint_number)
@@ -202,8 +202,8 @@ class CubicDoggoEnv(gym.Env):
         self.mujoco_data.xfrc_applied[self.root_body_id] = 0.0
         ############################################################################## initial state domain randomization
         if self.init_var_schedule > 0:
-            init_joint_pos_var_range   = np.array([-np.pi/180, np.pi/180])
-            init_rot_var_range         = np.array([-np.pi,     np.pi])
+            init_joint_pos_var_range   = np.array([-np.pi/18, np.pi/18])
+            init_rot_var_range         = np.array([-np.pi,    np.pi])
         ##############################################################################
             # pos_var            
             pos_shift = self.np_random.uniform(*(self.init_var_schedule*init_joint_pos_var_range), size=self.joint_number)
@@ -263,39 +263,39 @@ class CubicDoggoEnv(gym.Env):
         sim_leg_torque   = np.sum(np.abs(sim_joint_torque.reshape(4, 3)), axis=1)
         
         for obs_idx in range(len(data_joint_pos)):
-            obs_dict["data_joint_pos"+str(obs_idx)] = data_joint_pos[obs_idx]
+            obs_dict["y_data_joint_pos"+str(obs_idx)] = data_joint_pos[obs_idx]
         for obs_idx in range(len(data_joint_vel)):
-            obs_dict["data_joint_vel"+str(obs_idx)] = data_joint_vel[obs_idx]
+            obs_dict["y_data_joint_vel"+str(obs_idx)] = data_joint_vel[obs_idx]
         for obs_idx in range(len(data_gyro)):
             obs_dict["data_gyro"+str(obs_idx)] = data_gyro[obs_idx]
         obs_dict["data_roll"]   = data_roll
         obs_dict["data_pitch"]  = data_pitch
         obs_dict["data_height"] = data_height
         for obs_idx in range(len(sim_lin_vel)):
-            obs_dict["sim_lin_vel"+str(obs_idx)] = sim_lin_vel[obs_idx]
+            obs_dict["x_sim_lin_vel"+str(obs_idx)] = sim_lin_vel[obs_idx]
         for obs_idx in range(len(sim_joint_torque)):
-            obs_dict["sim_joint_torque"+str(obs_idx)] = sim_joint_torque[obs_idx]
+            obs_dict["x_sim_joint_torque"+str(obs_idx)] = sim_joint_torque[obs_idx]
         for obs_idx in range(len(sim_leg_torque)):
-            obs_dict["sim_leg_torque"+str(obs_idx)] = sim_leg_torque[obs_idx]
+            obs_dict["x_sim_leg_torque"+str(obs_idx)] = sim_leg_torque[obs_idx]
         for obs_idx in range(len(self.push_force_vec)):
-            obs_dict["sim_push_force"+str(obs_idx)] = self.push_force_vec[obs_idx]
+            obs_dict["x_sim_push_force"+str(obs_idx)] = self.push_force_vec[obs_idx]
         ############################################################################## reward/penalty parameters
         target_roll, target_pitch = 0.0, 0.0
         target_height             = 0.14984        #0.15689 for previleged
 
         reward_roll_pitch_scale = 1.0
-        reward_roll_pitch_sigma = 0.05          /self.tightener_schedule
+        reward_roll_pitch_sigma = 0.05          /self.rew_pen_schedule
         reward_height_scale     = 1.0
-        reward_height_sigma     = 0.05          /self.tightener_schedule
+        reward_height_sigma     = 0.05          /self.rew_pen_schedule
         penalty_joint_vel_scale = 1.0E-4
         penalty_joint_acc_scale = 2.5E-7
-        penalty_ang_vel_scale   = 0.05          *self.tightener_schedule
-        penalty_yaw_rate_scale  = 0.1           *self.tightener_schedule
+        penalty_ang_vel_scale   = 0.05          *self.rew_pen_schedule
+        penalty_yaw_rate_scale  = 0.1           *self.rew_pen_schedule
 
-        penalty_lin_vel_scale        = 0.5      *self.tightener_schedule
+        penalty_lin_vel_scale        = 0.5      *self.rew_pen_schedule
         penalty_joint_torque_scale   = 1.0E-4
         penalty_joint_power_scale    = 2.0E-4     
-        penalty_leg_torque_scale     = 0.1      *self.tightener_schedule
+        penalty_leg_torque_scale     = 0.1      *self.rew_pen_schedule
         penalty_slip_scale           = 0.0
         penalty_joint_pos_init_scale = 0.1
 
@@ -337,14 +337,14 @@ class CubicDoggoEnv(gym.Env):
             if in_contact == True:
                 residual_slip += np.sum(np.square(foot_vel[:2]))
        
-        obs_dict["residual_roll"]        = residual_roll
-        obs_dict["residual_pitch"]       = residual_pitch
-        obs_dict["residual_orientation"] = residual_orientation
-        obs_dict["residual_height"]      = residual_height
-        obs_dict["residual_pos"]         = residual_pos
-        obs_dict["residual_vel"]         = residual_vel
-        obs_dict["residual_action"]      = residual_action
-        obs_dict["residual_slip"]        = residual_slip
+        obs_dict["z_residual_roll"]        = residual_roll
+        obs_dict["z_residual_pitch"]       = residual_pitch
+        obs_dict["z_residual_orientation"] = residual_orientation
+        obs_dict["z_residual_height"]      = residual_height
+        obs_dict["z_residual_pos"]         = residual_pos
+        obs_dict["z_residual_vel"]         = residual_vel
+        obs_dict["z_residual_action"]      = residual_action
+        obs_dict["z_residual_slip"]        = residual_slip
         infos_dict["obs_dict"] = obs_dict
         ### 
         reward_dict = {}
@@ -428,8 +428,8 @@ class CubicDoggoEnv(gym.Env):
         self.obs_noise_schedule = new_scale
     def set_init_var_schedule(self, new_scale: float):
         self.init_var_schedule = new_scale
-    def set_tightener_schedule(self, new_scale: float):
-        self.tightener_schedule = new_scale
+    def set_rew_pen_schedule(self, new_scale: float):
+        self.rew_pen_schedule = new_scale
     def set_penalty_joint_pos_init_schedule(self, new_scale: float):
         self.penalty_joint_pos_init_schedule = new_scale
     def set_push_force_schedule(self, new_scale: float):
@@ -445,26 +445,32 @@ class CurriculumSchedulingCallback(BaseCallback):
 
         ############################################################################## curriculum scheduling
         # obs_noise
-        new_scale = min(1.0, 2*progress_ratio)
-        self.training_env.env_method("set_obs_noise_schedule", new_scale)
+        obs_noise_scale = min(1.0, 2*progress_ratio)
+        self.training_env.env_method("set_obs_noise_schedule", obs_noise_scale)
         # init_var
-        new_scale = min(1.0, 2*progress_ratio)
-        self.training_env.env_method("set_init_var_schedule", new_scale)
-        # tightener
+        init_var_scale = min(1.0, 2*progress_ratio)
+        self.training_env.env_method("set_init_var_schedule", init_var_scale)
+        # reward_penalty
         y_final_val       = 2.0
         x_mid_point       = 0.4
         sigmoid_steepness = 12.0
-        new_scale = 1.0 + (y_final_val - 1.0)/(1.0 + np.exp(-sigmoid_steepness*(progress_ratio - x_mid_point)))
-        self.training_env.env_method("set_tightener_schedule", new_scale)
+        rew_pen_scale = 1.0 + (y_final_val - 1.0)/(1.0 + np.exp(-sigmoid_steepness*(progress_ratio - x_mid_point)))
+        self.training_env.env_method("set_rew_pen_schedule", rew_pen_scale)
         # penalty_joint_pos_init
         decay_rate = 5.0
-        new_scale = np.exp(-decay_rate*progress_ratio)
-        new_scale = new_scale if (new_scale > self.scale_thres) else 0.0
-        self.training_env.env_method("set_penalty_joint_pos_init_schedule", new_scale)      
+        pos_init_scale = np.exp(-decay_rate*progress_ratio)
+        pos_init_scale = pos_init_scale if (pos_init_scale > self.scale_thres) else 0.0
+        self.training_env.env_method("set_penalty_joint_pos_init_schedule", pos_init_scale)      
         # push_force
-        new_scale = 0.0#max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
-        self.training_env.env_method("set_push_force_schedule", new_scale)
+        push_force_scale = 0.0#max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
+        self.training_env.env_method("set_push_force_schedule", push_force_scale)
         ##############################################################################
+        self.logger.record("z_schedulers/obs_noise",              obs_noise_scale)
+        self.logger.record("z_schedulers/init_var",               init_var_scale)
+        self.logger.record("z_schedulers/rew_pen",                rew_pen_scale)
+        self.logger.record("z_schedulers/penalty_joint_pos_init", pos_init_scale)
+        self.logger.record("z_schedulers/push_force",             push_force_scale)
+        ###
         term_time = np.mean(self.training_env.env_method("get_term_time"))
         self.logger.record("rollout/ep_len_time", term_time)
         ###
