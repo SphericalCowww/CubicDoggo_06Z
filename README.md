@@ -94,7 +94,7 @@ MuJoCo is a physics simulator like Gazebo,
     pip install catkin_pkg empy lark
     pip install jinja2 pyyaml typeguard setuptools wheel
     pip install mujoco pin gymnasium torch stable-baselines3 tensorboard            # pin for pinocchio
-    pip install onnx onnxscript
+    pip install onnx onnxscript onnxruntime
     pip install --upgrade opencv-python
     python3 -c "import mujoco; import pinocchio; import gymnasium; import torch; import stable_baselines3; print('Installation Successful')"
     cd CubicDoggo_06Z/
@@ -152,6 +152,8 @@ Gymnasium sets up the environment for reinforcement learning, while stable-basel
     ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand | tee output.txt
     tensorboard --logdir=ppo_tensorboards --reload_interval 1
     # open in browser: http://localhost:6006
+
+### Deploying model to MuJoCo
 
 ## References:
 
