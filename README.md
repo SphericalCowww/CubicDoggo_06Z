@@ -149,11 +149,17 @@ Gymnasium sets up the environment for reinforcement learning, while stable-basel
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
-    ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand | tee output.txt
-    tensorboard --logdir=ppo_tensorboards --reload_interval 1
+    ros2 run cubic_doggo_mujoco_ppo_stand_train_kinematicHeight
+    tensorboard --logdir=ppo_tensorboards
     # open in browser: http://localhost:6006
 
 ### Deploying model to MuJoCo
+
+    cd CubicDoggo_06Z/
+    source ../CubicDoggo_06Z_env/bin/activate
+    colcon build --cmake-clean-first
+    source install/setup.bash
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand_deploy
 
 ## References:
 
