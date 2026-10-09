@@ -94,6 +94,7 @@ MuJoCo is a physics simulator like Gazebo,
     pip install catkin_pkg empy lark
     pip install jinja2 pyyaml typeguard setuptools wheel
     pip install mujoco pin gymnasium torch stable-baselines3 tensorboard            # pin for pinocchio
+    pip install onnx onnxscript
     pip install --upgrade opencv-python
     python3 -c "import mujoco; import pinocchio; import gymnasium; import torch; import stable_baselines3; print('Installation Successful')"
     cd CubicDoggo_06Z/
