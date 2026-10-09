@@ -494,6 +494,36 @@ class CurriculumSchedulingCallback(BaseCallback):
                 self.logger.record("z_reward_ratios/"+reward_key, reward_val)
         return True
 ##################################################################################################################################
+def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path):
+    policy_net = ppo_model.policy
+    policy_net.to("cpu")
+    policy_net.eval()
+    dummy_input = torch.randn(1, obs_dim, dtype=torch.float32, device="cpu")
+    class OnnxPolicyWrapper(torch.nn.Module):
+        def __init__(self, policy):
+            super().__init__()
+            self.policy = policy
+        def forward(self, obs):
+            features = self.policy.extract_features(obs)
+            latent_pi, _ = self.policy.mlp_extractor(features)
+            actions = self.policy.action_net(latent_pi)
+            return actions
+    onnx_wrapper = OnnxPolicyWrapper(policy_net)
+    onnx_wrapper.eval()
+    torch.onnx.export(
+        onnx_wrapper,
+        dummy_input,
+        onnx_save_path,
+        export_params=True,
+        opset_version=17,
+        do_constant_folding=True,
+        input_names=['observation'],
+        output_names=['action'],
+        dynamic_axes={
+            'observation': {0: 'batch_size'},
+            'action':      {0: 'batch_size'}},
+        dynamo=False)
+##################################################################################################################################
 def main():
     render_mode = None
     policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_2_"
@@ -578,9 +608,11 @@ def main():
             total_counters = sum(ppo_env.env_method("get_reset_counters"))
             ppo_model.policy.user_data = {"reset_counters": total_counters.tolist()}
             ppo_model.save(ppo_model_save_name)
+            print("cubic_doggo_mujoco_stand_ppo(): model checkpoint saved:", ppo_model_save_name+".zip")
             ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
-            print("cubic_doggo_mujoco_stand_ppo(): model saved:",                ppo_model_save_name+".zip")
             print("cubic_doggo_mujoco_stand_ppo(): vector normalization saved:", ppo_model_save_name+"_vec_norm.pkl")
+            export_ppo_to_onnx(ppo_model, ppo_env.observation_space.shape[0], ppo_model_save_name+".onnx")
+            print("cubic_doggo_mujoco_stand_ppo(): model export onnx saved:", ppo_model_save_name+".onnx")
         print("cubic_doggo_mujoco_stand_ppo(): total time used", elapsed_time, "s") 
         print("---------------------------------------------------------------------------------------------------------------\n")
     print("cubic_doggo_mujoco_stand_ppo(): end of code")
