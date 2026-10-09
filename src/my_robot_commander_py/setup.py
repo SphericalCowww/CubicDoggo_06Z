@@ -1,6 +1,15 @@
 from setuptools import find_packages, setup
+from glob import glob
+import os
 
 package_name = 'my_robot_commander_py'
+
+def package_files(directory):
+    paths = []
+    for (path, directories, filenames) in os.walk(directory):
+        for filename in filenames:
+            paths.append(os.path.join(path, filename))
+    return paths
 
 setup(
     name=package_name,
@@ -10,6 +19,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name + '/deploy_model', glob('deploy_model/*.*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

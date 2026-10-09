@@ -228,10 +228,8 @@ class CubicDoggoEnv(gym.Env):
         infos_dict = {}
         current_time = self.mujoco_data.time
         action = np.clip(action, *self.action_range)
-        if np.sum(self.last_action) != 0:
-            action_delta = action - self.last_action
-            action_delta = np.clip(action_delta, *self.action_delta_range)
-            action = self.last_action + action_delta
+        action_delta = np.clip(action - self.last_action, *self.action_delta_range)
+        action = self.last_action + action_delta
         filtered_action = self.action_filter_alpha*action + (1.0 - self.action_filter_alpha)*self.last_action   #low pass filter
         target_ctrl = self.initial_ctrl + filtered_action*self.action_scale
         self.mujoco_data.ctrl[:] = target_ctrl
@@ -287,20 +285,20 @@ class CubicDoggoEnv(gym.Env):
         reward_roll_pitch_sigma = 0.05          /self.rew_pen_schedule
         reward_height_scale     = 1.0
         reward_height_sigma     = 0.05          /self.rew_pen_schedule
-        penalty_joint_vel_scale = 1.0E-4
-        penalty_joint_acc_scale = 2.5E-7
-        penalty_ang_vel_scale   = 0.05          *self.rew_pen_schedule
-        penalty_yaw_rate_scale  = 0.1           *self.rew_pen_schedule
+        penalty_joint_vel_scale = 1.0E-3
+        penalty_joint_acc_scale = 1.0E-5
+        penalty_ang_vel_scale   = 0.5           *self.rew_pen_schedule
+        penalty_yaw_rate_scale  = 1.0           *self.rew_pen_schedule
 
-        penalty_lin_vel_scale        = 0.5      *self.rew_pen_schedule
+        penalty_lin_vel_scale        = 10.0     *self.rew_pen_schedule
         penalty_joint_torque_scale   = 1.0E-4
         penalty_joint_power_scale    = 2.0E-4     
-        penalty_leg_torque_scale     = 0.1      *self.rew_pen_schedule
+        penalty_leg_torque_scale     = 0.5      *self.rew_pen_schedule
         penalty_slip_scale           = 0.0
         penalty_joint_pos_init_scale = 0.1
 
-        penalty_action_scale      = 0.001 
-        penalty_action_rate_scale = 0.01
+        penalty_action_scale      = 0.005 
+        penalty_action_rate_scale = 1.0
         ############################################################################## termination conditions
         self.term_data["roll"]        = (np.pi/6 < abs(data_roll))
         self.term_data["pitch"]       = (np.pi/6 < abs(data_pitch))
@@ -526,7 +524,7 @@ def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path):
 ##################################################################################################################################
 def main():
     render_mode = None
-    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_2_"
+    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_3_"
     #render_mode = "human"
     #policy_model_name = "cubic_doggo_stand_261008_1_"
 
@@ -543,7 +541,7 @@ def main():
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ############################################################################## visualization or headless
     rand_seed       = 1
-    ppo_checkpointN = 20
+    ppo_checkpointN = 40
     ppo_stepN       = 1_000_000                             # minimum is n_envs*n_steps, 16*2048 = 32768
     if render_mode == "human":
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
@@ -553,7 +551,7 @@ def main():
         reset_num_timesteps = False
     ##############################################################################
     if policy_model_file == None:
-        print("cubic_doggo_mujoco_stand_ppo(): initializing PPO model")
+        print("cubic_doggo_mujoco_ppo_stand_train(): initializing PPO model")
         ppo_env = VecNormalize(ppo_env,
                                norm_obs=True,
                                norm_reward=True,
@@ -576,7 +574,7 @@ def main():
                         gamma=0.99,
                         gae_lambda=0.95)
     else:
-        print("cubic_doggo_mujoco_stand_ppo(): continuing PPO model:", policy_model_file)
+        print("cubic_doggo_mujoco_ppo_stand_train(): continuing PPO model:", policy_model_file)
         ppo_env = VecNormalize.load(policy_model_file.replace(".zip", "_vec_norm.pkl"), ppo_env)
         ppo_model = PPO.load(policy_model_file, 
                              env=ppo_env, 
@@ -588,7 +586,7 @@ def main():
             counters_per_env = (np.array(saved_counters) // ppo_env.num_envs).tolist()
             ppo_env.env_method("set_reset_counters", counters_per_env)
 
-    print("cubic_doggo_mujoco_stand_ppo(): start training, with "+str(n_envs)+" CPU cores...")
+    print("cubic_doggo_mujoco_ppo_stand_train(): start training, with "+str(n_envs)+" CPU cores...")
     start_time = time.time()
     for ppo_idx in range(ppo_checkpointN-policy_model_idx+int(render_mode == "human")):
         ppo_checkpoint_idx = ppo_idx + policy_model_idx + 1 
@@ -608,14 +606,14 @@ def main():
             total_counters = sum(ppo_env.env_method("get_reset_counters"))
             ppo_model.policy.user_data = {"reset_counters": total_counters.tolist()}
             ppo_model.save(ppo_model_save_name)
-            print("cubic_doggo_mujoco_stand_ppo(): model checkpoint saved:", ppo_model_save_name+".zip")
+            print("cubic_doggo_mujoco_ppo_stand_train(): model checkpoint saved:", ppo_model_save_name+".zip")
             ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
-            print("cubic_doggo_mujoco_stand_ppo(): vector normalization saved:", ppo_model_save_name+"_vec_norm.pkl")
+            print("cubic_doggo_mujoco_ppo_stand_train(): vector normalization saved:", ppo_model_save_name+"_vec_norm.pkl")
             export_ppo_to_onnx(ppo_model, ppo_env.observation_space.shape[0], ppo_model_save_name+".onnx")
-            print("cubic_doggo_mujoco_stand_ppo(): model export onnx saved:", ppo_model_save_name+".onnx")
-        print("cubic_doggo_mujoco_stand_ppo(): total time used", elapsed_time, "s") 
+            print("cubic_doggo_mujoco_ppo_stand_train(): model export onnx saved:", ppo_model_save_name+".onnx")
+        print("cubic_doggo_mujoco_ppo_stand_train(): total time used", elapsed_time, "s") 
         print("---------------------------------------------------------------------------------------------------------------\n")
-    print("cubic_doggo_mujoco_stand_ppo(): end of code")
+    print("cubic_doggo_mujoco_ppo_stand_train(): end of code")
 
 ##################################################################################################################################
 if __name__ == '__main__': main()
