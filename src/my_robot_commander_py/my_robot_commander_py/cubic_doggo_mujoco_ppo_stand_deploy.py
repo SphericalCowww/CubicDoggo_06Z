@@ -32,8 +32,10 @@ def main():
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
 
     reinforcement_path = get_package_share_directory('my_robot_commander_py')
-    norm_path  = os.path.join(reinforcement_path, 'deploy_model', 'cubic_doggo_stand_261009_2_19_vec_norm.pkl')
-    onnx_path  = os.path.join(reinforcement_path, 'deploy_model', 'cubic_doggo_stand_261009_2_19.onnx')
+    #norm_path = os.path.join(reinforcement_path, 'deploy_model', 'cubic_doggo_stand_261009_2_19_vec_norm.pkl')
+    #onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'cubic_doggo_stand_261009_2_19.onnx')
+    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'cubic_doggo_stand_261009_3_40_vec_norm.pkl')
+    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'cubic_doggo_stand_261009_3_40.onnx')
     export_vec_norm_to_json(norm_path, norm_path.replace('install/my_robot_commander_py/share/', 'src/').replace('.pkl', '.json'))
 
     pkg_share_path = get_package_share_directory('my_robot_description')

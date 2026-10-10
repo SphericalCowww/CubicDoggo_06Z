@@ -67,17 +67,29 @@ class CubicDoggoEnv(gym.Env):
         mjcf_mujoco = mjcf_mujoco.replace('</asset>', robot_assets + '\n    </asset>')
         mjcf_mujoco = re.sub(r'<include\s+file=["\']' + re.escape(usdf_file) + r'["\']\s*/>', robot_bodies, mjcf_mujoco)
         for leg_prefix in self.leg_prefixes:
-            mjcf_mujoco = mjcf_mujoco.replace('name="calfSphere_'+leg_prefix+'"', 
-                                              'name="calfSphere_'+leg_prefix+'" class="foot_friction"')
+            #mjcf_mujoco = mjcf_mujoco.replace('name="calfSphere_'+leg_prefix+'"', 
+            #                                  'name="calfSphere_'+leg_prefix+'" class="foot_friction"')
+            body_name = f'calfSphere_{leg_prefix}'
+            pattern = rf'(<body[^>]*name="{body_name}"[^>]*>\s*<geom)'
+            mjcf_mujoco = re.sub(pattern, rf'\1 name="{body_name}" class="foot_friction"', mjcf_mujoco)
         self.mujoco_model = mujoco.MjModel.from_xml_string(mjcf_mujoco)
         self.mujoco_data  = mujoco.MjData(self.mujoco_model)
         self.mujoco_model.opt.timestep = self.time_per_step
         if self.mujoco_model.nkey > 0:
             mujoco.mj_resetDataKeyframe(self.mujoco_model, self.mujoco_data, 0)
 
-        self.root_body_id    = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_BODY, 'robot_root')
-        self.mujoco_foot_ids = [mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, 'calfSphere_'+leg_prefix)
-                                for leg_prefix in self.leg_prefixes]
+        self.mujoco_root_body_id = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_BODY, 'robot_root')
+        self.mujoco_foot_body_ids, self.mujoco_foot_ids = [], []
+        for leg_prefix in self.leg_prefixes:
+            feet_id = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_BODY, 'calfFeet_'+leg_prefix)
+            first_geom = self.mujoco_model.body_geomadr[feet_id]
+            num_geoms  = self.mujoco_model.body_geomnum[feet_id]
+            for geom_id in range(first_geom, first_geom + num_geoms):
+                if self.mujoco_model.geom_type[geom_id] == mujoco.mjtGeom.mjGEOM_SPHERE:
+                    self.mujoco_foot_body_ids.append(geom_id)                   # getting calfSphere body_id by shape matching
+                    break
+            self.mujoco_foot_ids.append(first_geom + (num_geoms - 1))           # getting calfSphere geom_id by order matching
+
         self.mujoco_floor_id = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, 'floor')
         self.ray_geom_id     = np.zeros(1, dtype=np.int32)
         self.init_cond_id    = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_KEY, "initial_condition")
@@ -199,7 +211,7 @@ class CubicDoggoEnv(gym.Env):
             self.mujoco_data.qvel[:] = 0.0
         self.last_push_time                              = 0.0
         self.push_force_vec[:]                           = 0.0
-        self.mujoco_data.xfrc_applied[self.root_body_id] = 0.0
+        self.mujoco_data.xfrc_applied[self.mujoco_root_body_id] = 0.0
         ############################################################################## initial state domain randomization
         if self.init_var_schedule > 0:
             init_joint_pos_var_range   = np.array([-np.pi/18, np.pi/18])
@@ -244,7 +256,7 @@ class CubicDoggoEnv(gym.Env):
                 self.last_push_time = current_time
             if (current_time - self.last_push_time) >= self.push_duration:
                 self.push_force_vec[:] = 0.0
-            self.mujoco_data.xfrc_applied[self.root_body_id] = self.push_force_vec
+            self.mujoco_data.xfrc_applied[self.mujoco_root_body_id] = self.push_force_vec
     
         for _ in range(self.stepN_per_action):
             mujoco.mj_step(self.mujoco_model, self.mujoco_data)
@@ -282,7 +294,7 @@ class CubicDoggoEnv(gym.Env):
         target_height             = 0.14984        #0.15689 for previleged
 
         reward_roll_pitch_scale = 1.0
-        reward_roll_pitch_sigma = 0.05          /self.rew_pen_schedule
+        reward_roll_pitch_sigma = 0.03          /self.rew_pen_schedule
         reward_height_scale     = 1.0
         reward_height_sigma     = 0.05          /self.rew_pen_schedule
         penalty_joint_vel_scale = 1.0E-3
@@ -294,7 +306,7 @@ class CubicDoggoEnv(gym.Env):
         penalty_joint_torque_scale   = 1.0E-4
         penalty_joint_power_scale    = 2.0E-4     
         penalty_leg_torque_scale     = 0.5      *self.rew_pen_schedule
-        penalty_slip_scale           = 0.0
+        penalty_slip_scale           = 0.5
         penalty_joint_pos_init_scale = 0.1
 
         penalty_action_scale      = 0.005 
@@ -324,17 +336,20 @@ class CubicDoggoEnv(gym.Env):
         if np.sum(self.last_action) != 0:
             residual_action = np.square(action - self.last_action)
         
-        foot_contacts = [False]*len(self.leg_prefixes)
+        foot_contacts = np.zeros(len(self.leg_prefixes), dtype=bool)
         for contact_id in range(self.mujoco_data.ncon):
-            contact = self.mujoco_data.contact[contact_id]
-            for mujoco_foot_idx, mujoco_foot_id in enumerate(self.mujoco_foot_ids):
-                if (contact.geom1 == mujoco_foot_id and contact.geom2 == self.mujoco_floor_id) or \
-                   (contact.geom2 == mujoco_foot_id and contact.geom1 == self.mujoco_floor_id): 
-                    foot_contacts[mujoco_foot_idx] = True
+            geom_contact = self.mujoco_data.contact[contact_id]
+            for foot_idx, foot_id in enumerate(self.mujoco_foot_ids):
+                if (geom_contact.geom1 == self.mujoco_floor_id and geom_contact.geom2 == foot_id) or \
+                   (geom_contact.geom2 == self.mujoco_floor_id and geom_contact.geom1 == foot_id): 
+                    foot_contacts[foot_idx] = True
         for foot_vel, in_contact in zip(self.feet_vel, foot_contacts):
             if in_contact == True:
                 residual_slip += np.sum(np.square(foot_vel[:2]))
-       
+        #print("cubic_doggo_mujoco_ppo_stand_train(): contact geom_ids:", 
+        #      [[self.mujoco_data.contact[contact_id].geom1, self.mujoco_data.contact[contact_id].geom2] 
+        #        for contact_id in range(self.mujoco_data.ncon)])
+
         obs_dict["z_residual_roll"]        = residual_roll
         obs_dict["z_residual_pitch"]       = residual_pitch
         obs_dict["z_residual_orientation"] = residual_orientation
@@ -383,7 +398,6 @@ class CubicDoggoEnv(gym.Env):
             if self.render_mode == "human":
                 self.viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_100, mujoco.mjtGridPos.mjGRID_TOPRIGHT,
                                       "TELEMETRY", telemetry_str))
-            #print(telemetry_str) 
             self.last_text_update = copy.deepcopy(self.mujoco_data.time)
         if self.render_mode == "human":
             self._render_force_arrow()
@@ -405,7 +419,7 @@ class CubicDoggoEnv(gym.Env):
         viewer_scn = self.viewer.user_scn
         viewer_scn.ngeom = 0
 
-        start_pos = np.array(self.mujoco_data.xpos[self.root_body_id], dtype=np.float64)
+        start_pos = np.array(self.mujoco_data.xpos[self.mujoco_root_body_id], dtype=np.float64)
         if float(np.linalg.norm(force_vec)) < 1e-6:
             return
         end_pos = start_pos + force_vec
@@ -524,9 +538,9 @@ def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path):
 ##################################################################################################################################
 def main():
     render_mode = None
-    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_3_"
+    policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_1_"
     #render_mode = "human"
-    #policy_model_name = "cubic_doggo_stand_261008_1_"
+    #policy_model_name = "cubic_doggo_stand_261009_3_"
 
     policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", "ppo_tensorboards/")
     os.makedirs(policy_model_path, exist_ok=True)
@@ -586,7 +600,7 @@ def main():
             counters_per_env = (np.array(saved_counters) // ppo_env.num_envs).tolist()
             ppo_env.env_method("set_reset_counters", counters_per_env)
 
-    print("cubic_doggo_mujoco_ppo_stand_train(): start training, with "+str(n_envs)+" CPU cores...")
+    print("cubic_doggo_mujoco_ppo_stand_train(): start training, with "+str(ppo_env.num_envs)+" CPU cores...")
     start_time = time.time()
     for ppo_idx in range(ppo_checkpointN-policy_model_idx+int(render_mode == "human")):
         ppo_checkpoint_idx = ppo_idx + policy_model_idx + 1 

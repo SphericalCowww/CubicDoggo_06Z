@@ -448,8 +448,6 @@ def main():
     ppo_checkpointN = 40
     ppo_stepN       = 1_000_000                             # minimum is n_envs*n_steps, 16*2048 = 32768
     if render_mode == "human":
-        #policy_model_file = None
-        #policy_model_file = policy_model_path + "cubic_doggo_stand_260928_2_10.zip"
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
         reset_num_timesteps = False#True
     else:
