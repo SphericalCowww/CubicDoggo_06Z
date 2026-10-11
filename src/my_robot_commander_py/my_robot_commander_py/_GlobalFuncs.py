@@ -1,6 +1,8 @@
 import os, sys, pathlib, time, re, glob, math, copy
 import numpy as np
+import mujoco, mujoco.viewer
 import pinocchio
+import onnx
 
 #############################################################################################################################
 def quat2euler(w, x, y, z):
@@ -94,7 +96,64 @@ def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_s
         target_z -= z_offset
         target_feet.append(np.array([target_x, target_y, target_z]))
     return target_feet
+def render_force_arrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push_force_max):
+    if viewer is None:
+        return
+    arrow_radius  = 0.008        #m
+    max_arrow_len = 1.0         #m
+    force_xyz = np.array(push_force_vec, dtype=np.float64)
+    force_mag = float(np.linalg.norm(force_xyz))
+    force_vec = max_arrow_len*force_xyz/push_force_max
+
+    viewer_scn = viewer.user_scn
+    viewer_scn.ngeom = 0
+
+    start_pos = np.array(mujoco_data.xpos[mujoco_body_id], dtype=np.float64)
+    if float(np.linalg.norm(force_vec)) < 1e-6:
+        return
+    end_pos = start_pos + force_vec
+        
+    viewer_geom = viewer_scn.geoms[viewer_scn.ngeom]
+    mujoco.mjv_connector(viewer_geom, mujoco.mjtGeom.mjGEOM_ARROW, arrow_radius, start_pos, end_pos)
+    viewer_geom.rgba[:] = np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
+    viewer_scn.ngeom += 1
 #############################################################################################################################
+def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path, config=None):
+    policy_net = ppo_model.policy
+    policy_net.to("cpu")
+    policy_net.eval()
+    dummy_input = torch.randn(1, obs_dim, dtype=torch.float32, device="cpu")
+    class OnnxPolicyWrapper(torch.nn.Module):
+        def __init__(self, policy):
+            super().__init__()
+            self.policy = policy
+        def forward(self, obs):
+            features = self.policy.extract_features(obs)
+            latent_pi, _ = self.policy.mlp_extractor(features)
+            actions = self.policy.action_net(latent_pi)
+            return actions
+    onnx_wrapper = OnnxPolicyWrapper(policy_net)
+    onnx_wrapper.eval()
+    torch.onnx.export(
+        onnx_wrapper,
+        dummy_input,
+        onnx_save_path,
+        export_params=True,
+        opset_version=17,
+        do_constant_folding=True,
+        input_names=['observation'],
+        output_names=['action'],
+        dynamic_axes={
+            'observation': {0: 'batch_size'},
+            'action':      {0: 'batch_size'}},
+        dynamo=False)
+    if config is not None:
+        onnx_model = onnx.load(onnx_save_path)
+        for key, val in config.items():
+            meta = onnx_model.metadata_props.add()
+            meta.key = str(key)
+            meta.value = str(val)
+        onnx.save(onnx_model, onnx_save_path)
 def findSaveFile(policy_model_path, policy_model_name, file_type):
     ppo_files = glob.glob(os.path.join(policy_model_path, policy_model_name+"*"+file_type))
     if len(ppo_files) != 0:
