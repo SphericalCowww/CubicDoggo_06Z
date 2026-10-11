@@ -22,8 +22,8 @@ PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
 ENV_CONFIG = {
             "render_mode":          None,
             "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_1_",
-#            "render_mode":          "human",                                       # for visualization
-#            "policy_model_name":    "cubic_doggo_stand_261010_2_",
+            #"render_mode":          "human",                                       # for visualization
+            #"policy_model_name":    "cubic_doggo_stand_261010_2_",
             "rand_seed":            1,
             "ppo_checkpointN":      40,
             "ppo_stepN":            1_000_000,                                      # minimum is n_envs*n_steps, 16*2048 = 32768
@@ -599,10 +599,9 @@ def main():
                              device="cpu",
                              verbose=1,
                              seed=rand_seed)
-        if hasattr(ppo_model.policy, "user_data") and "reset_counters" in ppo_model.policy.user_data:
-            saved_counters = ppo_model.policy.user_data["reset_counters"]
-            counters_per_env = (np.array(saved_counters) // ppo_env.num_envs).tolist()
-            ppo_env.env_method("set_reset_counters", counters_per_env)
+        saved_counters = ppo_model.custom_objects["reset_counters"]
+        counters_per_env = (np.array(saved_counters) // ppo_env.num_envs).tolist()
+        ppo_env.env_method("set_reset_counters", counters_per_env)
 
     print("cubic_doggo_mujoco_ppo_stand_train(): start training, with "+str(ppo_env.num_envs)+" CPU cores...")
     start_time = time.time()
@@ -620,17 +619,15 @@ def main():
                         tb_log_name=policy_model_name,
                         reset_num_timesteps=False,)
         elapsed_time = time.time() - start_time
-        if getattr(ppo_env, "render_mode", None) != "human":
-            total_counters = sum(ppo_env.env_method("get_reset_counters"))
-            ppo_model.policy.user_data = {
-                "reset_counters": total_counters.tolist(),
-                "env_config":     ENV_CONFIG}
-            ppo_model.save(ppo_model_save_name)
-            print("cubic_doggo_mujoco_ppo_stand_train(): model checkpoint saved:", ppo_model_save_name+".zip")
-            ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
-            print("cubic_doggo_mujoco_ppo_stand_train(): vector normalization saved:", ppo_model_save_name+"_vec_norm.pkl")
-            export_ppo_to_onnx(ppo_model, ppo_env.observation_space.shape[0], ppo_model_save_name+".onnx", ENV_CONFIG)
-            print("cubic_doggo_mujoco_ppo_stand_train(): model export onnx saved:", ppo_model_save_name+".onnx")
+        total_counters = sum(ppo_env.env_method("get_reset_counters"))
+        custom_data = {**ENV_CONFIG, "reset_counters": total_counters.tolist()}
+        ppo_model.custom_objects = custom_data
+        ppo_model.save(ppo_model_save_name)
+        print("cubic_doggo_mujoco_ppo_stand_train(): model checkpoint saved:", ppo_model_save_name+".zip")
+        ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
+        print("cubic_doggo_mujoco_ppo_stand_train(): vector normalization saved:", ppo_model_save_name+"_vec_norm.pkl")
+        export_ppo_to_onnx(ppo_model, ppo_env.observation_space.shape[0], ppo_model_save_name+".onnx", custom_data)
+        print("cubic_doggo_mujoco_ppo_stand_train(): model export onnx saved:", ppo_model_save_name+".onnx")
         print("cubic_doggo_mujoco_ppo_stand_train(): total time used", elapsed_time, "s") 
         print("---------------------------------------------------------------------------------------------------------------\n")
     print("cubic_doggo_mujoco_ppo_stand_train(): end of code")
