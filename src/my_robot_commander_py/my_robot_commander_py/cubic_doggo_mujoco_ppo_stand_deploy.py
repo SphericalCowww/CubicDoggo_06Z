@@ -53,9 +53,12 @@ def main():
             env_config[key] = ast.literal_eval(val)
         except (ValueError, SyntaxError):
             env_config[key] = val
-
-    print(env_config)
-    sys.exit(0)
+    joint_number = env_config["joint_number"]
+    action_scale = env_config["action_scale"]
+    action_range = env_config["action_range"]
+    action_delta_range = env_config["action_delta_range"]
+    action_filter_alpha = env_config["action_filter_alpha"]
+    stepN_per_action = env_config["stepN_per_action"]
 
     with open(norm_path, 'rb') as file_obj:
         vec_norm = pickle.load(file_obj) 
@@ -119,13 +122,6 @@ def main():
             pinocchio_joint_v_idx = pinocchio_model.joints[pinocchio_joint_id].idx_v
             pinocchio_joint_mappings.append((mujoco_joint_q_idx, mujoco_joint_v_idx, pinocchio_joint_q_idx,pinocchio_joint_v_idx))
     ################
-    joint_number = 12
-    action_scale = 0.2
-    action_range = [-1.0, 1.0]
-    action_delta_range = [-0.05, 0.05]
-    action_filter_alpha = 0.2
-    stepN_per_action = 4
-
     text_update_time   = 0.1                         # s
     action_delay_time  = 1.0                         # s
     delta_t = mujoco_model.opt.timestep
