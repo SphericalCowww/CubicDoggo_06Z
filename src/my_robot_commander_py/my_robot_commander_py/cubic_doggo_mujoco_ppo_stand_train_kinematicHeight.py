@@ -19,6 +19,13 @@ from stable_baselines3.common.logger import Logger, CSVOutputFormat, HumanOutput
 from ._GlobalFuncs import *
 PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
 ##################################################################################################################################
+ENV_CONFIG = {"joint_number": 12,
+              "action_scale": 0.2,
+              "action_range": [-1.0, 1.0],
+              "action_delta_range": [-0.05, 0.05],
+              "action_filter_alpha": 0.2,
+              "stepN_per_action": 4}
+
 class CubicDoggoEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 50}
     def __init__(self, render_mode=None):
@@ -26,15 +33,15 @@ class CubicDoggoEnv(gym.Env):
         self.render_mode = render_mode
         self.viewer      = None
 
-        self.joint_number = 12
+        self.joint_number = ENV_CONFIG["joint_number"]
         self.gyro_number  = 3 
         self.obs_dim      = self.joint_number + self.joint_number + self.gyro_number + 2 + 1
 
-        self.time_per_step     = 0.003   # s, default = 0.002
-        self.stepN_per_action  = 4       # steps
-        self.skip_first_stepN  = 4       # steps 
-        self.truncate_max_time = 20.0    # s
-        self.text_update_time  = 1.0     # s
+        self.time_per_step     = 0.003                              # s, default = 0.002
+        self.stepN_per_action  = ENV_CONFIG["stepN_per_action"]     # steps
+        self.skip_first_stepN  = 4                                  # steps 
+        self.truncate_max_time = 20.0                               # s
+        self.text_update_time  = 1.0                                # s
         self.last_text_update  = 0.0
 
         self.leg_prefixes = ['FL', 'FR', 'BL', 'BR']
@@ -133,10 +140,10 @@ class CubicDoggoEnv(gym.Env):
         self.push_force_vec = np.zeros(6)                
         self.last_push_time = 0
         ###
-        self.action_range        = [-1.0,  1.0]
-        self.action_delta_range  = [-0.05, 0.05]
-        self.action_filter_alpha = 0.2
-        self.action_scale        = 0.2
+        self.action_range        = ENV_CONFIG["action_range"]
+        self.action_delta_range  = ENV_CONFIG["action_delta_range"]
+        self.action_filter_alpha = ENV_CONFIG["action_filter_alpha"]
+        self.action_scale        = ENV_CONFIG["action_scale"]
         self.num_actions = len(self.joint_names)
         self.action_space      = spaces.Box(low=-1.0,    high=1.0,    shape=(self.num_actions,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.obs_dim,), dtype=np.float32)
@@ -303,10 +310,10 @@ class CubicDoggoEnv(gym.Env):
         penalty_yaw_rate_scale  = 1.0           *self.rew_pen_schedule
 
         penalty_lin_vel_scale        = 10.0     *self.rew_pen_schedule
-        penalty_joint_torque_scale   = 1.0E-4
-        penalty_joint_power_scale    = 2.0E-4     
+        penalty_joint_torque_scale   = 1.0E-2
+        penalty_joint_power_scale    = 2.0E-2     
         penalty_leg_torque_scale     = 0.5      *self.rew_pen_schedule
-        penalty_slip_scale           = 0.5
+        penalty_slip_scale           = 50.0
         penalty_joint_pos_init_scale = 0.1
 
         penalty_action_scale      = 0.005 
@@ -474,9 +481,12 @@ class CurriculumSchedulingCallback(BaseCallback):
         pos_init_scale = pos_init_scale if (pos_init_scale > self.scale_thres) else 0.0
         self.training_env.env_method("set_penalty_joint_pos_init_schedule", pos_init_scale)      
         # push_force
-        push_force_scale = 0.0#max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
+        #push_force_scale = 0.0
+        push_force_scale = max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
         self.training_env.env_method("set_push_force_schedule", push_force_scale)
         ##############################################################################
+
+
         self.logger.record("z_schedulers/obs_noise",              obs_noise_scale)
         self.logger.record("z_schedulers/init_var",               init_var_scale)
         self.logger.record("z_schedulers/rew_pen",                rew_pen_scale)
@@ -618,7 +628,9 @@ def main():
         elapsed_time = time.time() - start_time
         if getattr(ppo_env, "render_mode", None) != "human":
             total_counters = sum(ppo_env.env_method("get_reset_counters"))
-            ppo_model.policy.user_data = {"reset_counters": total_counters.tolist()}
+            ppo_model.policy.user_data = {
+                "reset_counters": total_counters.tolist(),
+                "env_config":     ENV_CONFIG}
             ppo_model.save(ppo_model_save_name)
             print("cubic_doggo_mujoco_ppo_stand_train(): model checkpoint saved:", ppo_model_save_name+".zip")
             ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
