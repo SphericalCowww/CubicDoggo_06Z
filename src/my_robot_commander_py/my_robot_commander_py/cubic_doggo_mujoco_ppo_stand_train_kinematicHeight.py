@@ -7,6 +7,7 @@ import xacro
 import mujoco, mujoco.viewer
 import pinocchio
 import torch
+import onnx
 torch.use_deterministic_algorithms(True)
 import gymnasium as gym
 from gymnasium import spaces
@@ -516,7 +517,7 @@ class CurriculumSchedulingCallback(BaseCallback):
                 self.logger.record("z_reward_ratios/"+reward_key, reward_val)
         return True
 ##################################################################################################################################
-def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path):
+def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path, config=None):
     policy_net = ppo_model.policy
     policy_net.to("cpu")
     policy_net.eval()
@@ -545,12 +546,19 @@ def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path):
             'observation': {0: 'batch_size'},
             'action':      {0: 'batch_size'}},
         dynamo=False)
+    if config is not None:
+        onnx_model = onnx.load(onnx_save_path)
+        for key, val in config.items():
+            meta = onnx_model.metadata_props.add()
+            meta.key = str(key)
+            meta.value = str(val)
+        onnx.save(onnx_model, onnx_save_path)
 ##################################################################################################################################
 def main():
     render_mode = None
     policy_model_name = "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_1_"
     #render_mode = "human"
-    #policy_model_name = "cubic_doggo_stand_261009_3_"
+    #policy_model_name = "cubic_doggo_stand_261010_2_"
 
     policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", "ppo_tensorboards/")
     os.makedirs(policy_model_path, exist_ok=True)
@@ -635,7 +643,7 @@ def main():
             print("cubic_doggo_mujoco_ppo_stand_train(): model checkpoint saved:", ppo_model_save_name+".zip")
             ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
             print("cubic_doggo_mujoco_ppo_stand_train(): vector normalization saved:", ppo_model_save_name+"_vec_norm.pkl")
-            export_ppo_to_onnx(ppo_model, ppo_env.observation_space.shape[0], ppo_model_save_name+".onnx")
+            export_ppo_to_onnx(ppo_model, ppo_env.observation_space.shape[0], ppo_model_save_name+".onnx", ENV_CONFIG)
             print("cubic_doggo_mujoco_ppo_stand_train(): model export onnx saved:", ppo_model_save_name+".onnx")
         print("cubic_doggo_mujoco_ppo_stand_train(): total time used", elapsed_time, "s") 
         print("---------------------------------------------------------------------------------------------------------------\n")

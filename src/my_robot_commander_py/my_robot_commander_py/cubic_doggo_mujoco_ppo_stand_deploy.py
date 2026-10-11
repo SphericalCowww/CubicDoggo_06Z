@@ -7,6 +7,7 @@ import xacro
 import mujoco, mujoco.viewer
 import pinocchio
 import onnxruntime as ort
+import ast
 
 from ._GlobalFuncs import *
 ##################################################################################################################################
@@ -45,14 +46,22 @@ def main():
     ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
     input_name  = ort_session.get_inputs()[0].name
     output_name = ort_session.get_outputs()[0].name
+    meta_map = ort_session.get_modelmeta().custom_metadata_map
+    env_config = {}
+    for key, val in meta_map.items():
+        try:
+            env_config[key] = ast.literal_eval(val)
+        except (ValueError, SyntaxError):
+            env_config[key] = val
+
+    print(env_config)
+    sys.exit(0)
 
     with open(norm_path, 'rb') as file_obj:
-        vec_norm = pickle.load(file_obj)
-    
+        vec_norm = pickle.load(file_obj) 
     obs_mean = vec_norm.obs_rms.mean
     obs_var  = vec_norm.obs_rms.var
     clip_obs = getattr(vec_norm, 'clip_obs', 10.0)
-
     def normalize_obs(raw_obs):
         norm_obs = (raw_obs - obs_mean) / np.sqrt(obs_var + 1e-8)
         return np.clip(norm_obs, -clip_obs, clip_obs).astype(np.float32)
