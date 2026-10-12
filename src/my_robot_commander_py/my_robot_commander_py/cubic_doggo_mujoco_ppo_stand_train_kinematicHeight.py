@@ -15,13 +15,14 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import Logger, CSVOutputFormat, HumanOutputFormat, TensorBoardOutputFormat
+import onnxruntime as ort
  
 from ._GlobalFuncs import *
 PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
 ##################################################################################################################################
 ENV_CONFIG = {
             "render_mode":          None,
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_1_",
+            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_2_",
             #"render_mode":          "human",                                       # for visualization
             #"policy_model_name":    "cubic_doggo_stand_261010_2_",
             "rand_seed":            1,
@@ -71,7 +72,7 @@ ENV_CONFIG = {
             "reward_height_scale":              1.0,
             "reward_height_sigma":              0.05,
             "penalty_joint_vel_scale":          1.0E-3,
-            "penalty_joint_acc_scale":          1.0E-3,
+            "penalty_joint_acc_scale":          1.0E-5,
             "penalty_ang_vel_scale":            0.5,
             "penalty_yaw_rate_scale":           1.0,
             "penalty_lin_vel_scale":            10.0,           
@@ -462,7 +463,7 @@ class CubicDoggoEnv(gym.Env):
                                       "TELEMETRY", telemetry_str))
             self.last_text_update = copy.deepcopy(self.mujoco_data.time)
         if self.render_mode == "human":
-            render_force_arrow(self.viewer, self.mujoco_data,self.mujoco_root_body_id,self.push_force_vec[:3],self.push_force_max)
+            renderForceArrow(self.viewer, self.mujoco_data,self.mujoco_root_body_id,self.push_force_vec[:3],self.push_force_max)
             self.viewer.sync()
         return observations, reward, terminated, truncated, infos_dict
     def close(self):
@@ -599,7 +600,8 @@ def main():
                              device="cpu",
                              verbose=1,
                              seed=rand_seed)
-        saved_counters = ppo_model.custom_objects["reset_counters"]
+        train_config = extractONNXconfig(policy_model_file.replace(".zip", ".onnx"))
+        saved_counters = train_config["reset_counters"]
         counters_per_env = (np.array(saved_counters) // ppo_env.num_envs).tolist()
         ppo_env.env_method("set_reset_counters", counters_per_env)
 
@@ -620,13 +622,12 @@ def main():
                         reset_num_timesteps=False,)
         elapsed_time = time.time() - start_time
         total_counters = sum(ppo_env.env_method("get_reset_counters"))
-        custom_data = {**ENV_CONFIG, "reset_counters": total_counters.tolist()}
-        ppo_model.custom_objects = custom_data
+        train_config = {**ENV_CONFIG, "reset_counters": total_counters.tolist()}
         ppo_model.save(ppo_model_save_name)
         print("cubic_doggo_mujoco_ppo_stand_train(): model checkpoint saved:", ppo_model_save_name+".zip")
         ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
         print("cubic_doggo_mujoco_ppo_stand_train(): vector normalization saved:", ppo_model_save_name+"_vec_norm.pkl")
-        export_ppo_to_onnx(ppo_model, ppo_env.observation_space.shape[0], ppo_model_save_name+".onnx", custom_data)
+        exportPPO_ONNX(ppo_model, ppo_env.observation_space.shape[0], ppo_model_save_name+".onnx", train_config)
         print("cubic_doggo_mujoco_ppo_stand_train(): model export onnx saved:", ppo_model_save_name+".onnx")
         print("cubic_doggo_mujoco_ppo_stand_train(): total time used", elapsed_time, "s") 
         print("---------------------------------------------------------------------------------------------------------------\n")

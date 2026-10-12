@@ -4,6 +4,8 @@ import mujoco, mujoco.viewer
 import pinocchio
 import torch
 import onnx
+import onnxruntime as ort
+import ast
 
 #############################################################################################################################
 def quat2euler(w, x, y, z):
@@ -97,7 +99,7 @@ def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_s
         target_z -= z_offset
         target_feet.append(np.array([target_x, target_y, target_z]))
     return target_feet
-def render_force_arrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push_force_max):
+def renderForceArrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push_force_max):
     if viewer is None:
         return
     arrow_radius  = 0.008        #m
@@ -119,7 +121,7 @@ def render_force_arrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push
     viewer_geom.rgba[:] = np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
     viewer_scn.ngeom += 1
 #############################################################################################################################
-def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path, config=None):
+def exportPPO_ONNX(ppo_model, obs_dim, onnx_save_path, config=None):
     policy_net = ppo_model.policy
     policy_net.to("cpu")
     policy_net.eval()
@@ -155,6 +157,15 @@ def export_ppo_to_onnx(ppo_model, obs_dim, onnx_save_path, config=None):
             meta.key = str(key)
             meta.value = str(val)
         onnx.save(onnx_model, onnx_save_path)
+def extractONNXconfig(onnx_path):
+    ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
+    env_config = {}
+    for key, val in ort_session.get_modelmeta().custom_metadata_map.items():
+        try:
+            env_config[key] = ast.literal_eval(val)
+        except (ValueError, SyntaxError):
+            env_config[key] = val 
+    return env_config
 def findSaveFile(policy_model_path, policy_model_name, file_type):
     ppo_files = glob.glob(os.path.join(policy_model_path, policy_model_name+"*"+file_type))
     if len(ppo_files) != 0:
