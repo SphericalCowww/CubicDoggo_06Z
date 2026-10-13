@@ -20,9 +20,9 @@ import onnxruntime as ort
 from ._GlobalFuncs import *
 PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
 ##################################################################################################################################
-ENV_CONFIG = {
+TRAIN_CONFIG = {
             "render_mode":          None,
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_2_",
+            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_3_",
             #"render_mode":          "human",                                       # for visualization
             #"policy_model_name":    "cubic_doggo_stand_261010_2_",
             "rand_seed":            1,
@@ -60,29 +60,33 @@ ENV_CONFIG = {
             "toggle_penalty_joint_pos_init_schedul":    True,
                 "joint_pos_init_decay_rate":            5.0,
             "toggle_push_force_schedule":               True,
-                "push_force_max":                       15.0,                       # N
+                "push_force_max":                       10.0,                       # N
                 "push_interval":                        5,                          # s
                 "push_duration":                        0.1,                        # s
 
-            "target_roll":                      0.0,                                # rad
-            "target_pitch":                     0.0,                                # rad
-            "target_height":                    0.14984,                            # m, 0.15689 for previleged
-            "reward_roll_pitch_scale":          1.0,
-            "reward_roll_pitch_sigma":          0.03,
-            "reward_height_scale":              1.0,
-            "reward_height_sigma":              0.05,
-            "penalty_joint_vel_scale":          1.0E-3,
-            "penalty_joint_acc_scale":          1.0E-5,
-            "penalty_ang_vel_scale":            0.5,
-            "penalty_yaw_rate_scale":           1.0,
-            "penalty_lin_vel_scale":            10.0,           
-            "penalty_joint_torque_scale":       1.0E-2,
-            "penalty_joint_power_scale":        2.0E-2,
-            "penalty_leg_torque_scale":         0.5,
-            "penalty_slip_scale":               50.0,
-            "penalty_joint_pos_init_scale":     0.1,
-            "penalty_action_scale":             0.005,
-            "penalty_action_rate_scale":        1.0,
+            "target_roll":                              0.0,                        # rad
+            "target_pitch":                             0.0,                        # rad
+            "target_height":                            0.14984,                    # m, 0.15689 for previleged
+            "reward_roll_pitch_scale":                  0.5,
+            "reward_roll_pitch_sigma":                  0.1,
+            "reward_height_scale":                      0.5,
+            "reward_height_sigma":                      0.1,
+            "penalty_joint_vel_scale":                  1.0E-3,
+            "penalty_joint_acc_scale":                  1.0E-5,
+            "penalty_ang_vel_scale":                    0.5,
+            "penalty_yaw_rate_scale":                   1.0,
+            "penalty_lin_vel_scale":                    10.0,           
+            "penalty_joint_torque_scale":               1.0E-2,
+            "penalty_joint_power_scale":                2.0E-2,
+            "penalty_leg_torque_scale":                 0.5,
+            "penalty_slip_scale":                       50.0,
+            "penalty_joint_pos_init_scale":             0.1,
+            "penalty_action_scale":                     0.005,
+            "penalty_action_rate_scale":                1.0,
+
+            "termination_threshold_roll":               np.pi/4,                    # rad
+            "termination_threshold_pitch":              np.pi/4,                    # rad
+            "termination_threshold_height_diff":        0.05,                       # m
         }
 ##################################################################################################################################
 class CubicDoggoEnv(gym.Env):
@@ -92,15 +96,15 @@ class CubicDoggoEnv(gym.Env):
         self.render_mode = render_mode
         self.viewer      = None
 
-        self.joint_number = ENV_CONFIG["joint_number"]
-        self.gyro_number  = ENV_CONFIG["gyro_number"]
+        self.joint_number = TRAIN_CONFIG["joint_number"]
+        self.gyro_number  = TRAIN_CONFIG["gyro_number"]
         self.obs_dim      = self.joint_number + self.joint_number + self.gyro_number + 2 + 1
 
-        self.time_per_step     = ENV_CONFIG["time_per_step"]
-        self.stepN_per_action  = ENV_CONFIG["stepN_per_action"]
-        self.skip_first_stepN  = ENV_CONFIG["skip_first_stepN"]
-        self.truncate_max_time = ENV_CONFIG["truncate_max_time"]
-        self.text_update_time  = ENV_CONFIG["text_update_time"]
+        self.time_per_step     = TRAIN_CONFIG["time_per_step"]
+        self.stepN_per_action  = TRAIN_CONFIG["stepN_per_action"]
+        self.skip_first_stepN  = TRAIN_CONFIG["skip_first_stepN"]
+        self.truncate_max_time = TRAIN_CONFIG["truncate_max_time"]
+        self.text_update_time  = TRAIN_CONFIG["text_update_time"]
         self.last_text_update  = 0.0
 
         self.leg_prefixes = ['FL', 'FR', 'BL', 'BR']
@@ -193,16 +197,16 @@ class CubicDoggoEnv(gym.Env):
         self.rew_pen_schedule                = 1.0
         self.penalty_joint_pos_init_schedule = 1.0
         self.push_force_schedule             = 0.0
-        self.push_force_max = ENV_CONFIG["push_force_max"] 
-        self.push_interval  = ENV_CONFIG["push_interval"]    
-        self.push_duration  = ENV_CONFIG["push_duration"]   
+        self.push_force_max = TRAIN_CONFIG["push_force_max"] 
+        self.push_interval  = TRAIN_CONFIG["push_interval"]    
+        self.push_duration  = TRAIN_CONFIG["push_duration"]   
         self.push_force_vec = np.zeros(6)                
         self.last_push_time = 0
         ###
-        self.action_range        = ENV_CONFIG["action_range"]
-        self.action_delta_range  = ENV_CONFIG["action_delta_range"]
-        self.action_filter_alpha = ENV_CONFIG["action_filter_alpha"]
-        self.action_scale        = ENV_CONFIG["action_scale"]
+        self.action_range        = TRAIN_CONFIG["action_range"]
+        self.action_delta_range  = TRAIN_CONFIG["action_delta_range"]
+        self.action_filter_alpha = TRAIN_CONFIG["action_filter_alpha"]
+        self.action_scale        = TRAIN_CONFIG["action_scale"]
         self.num_actions = len(self.joint_names)
         self.action_space      = spaces.Box(low=-1.0,    high=1.0,    shape=(self.num_actions,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(self.obs_dim,), dtype=np.float32)
@@ -221,10 +225,10 @@ class CubicDoggoEnv(gym.Env):
         imu_roll_rad, imu_pitch_rad, _ = quat2euler(*quat_data)
         ############################################################################## observable domain randomization
         if self.obs_noise_schedule > 0:
-            dom_rand_joint_pos_scale      = ENV_CONFIG["dom_rand_joint_pos_scale"]
-            dom_rand_joint_vec_scale      = ENV_CONFIG["dom_rand_joint_vec_scale"]
-            dom_rand_imu_gyro_scale       = ENV_CONFIG["dom_rand_imu_gyro_scale"]
-            dom_rand_imu_roll_pitch_scale = ENV_CONFIG["dom_rand_imu_roll_pitch_scale"]
+            dom_rand_joint_pos_scale      = TRAIN_CONFIG["dom_rand_joint_pos_scale"]
+            dom_rand_joint_vec_scale      = TRAIN_CONFIG["dom_rand_joint_vec_scale"]
+            dom_rand_imu_gyro_scale       = TRAIN_CONFIG["dom_rand_imu_gyro_scale"]
+            dom_rand_imu_roll_pitch_scale = TRAIN_CONFIG["dom_rand_imu_roll_pitch_scale"]
             joint_pos += self.np_random.normal(0.0, dom_rand_joint_pos_scale*self.obs_noise_schedule, size=self.joint_number)
             joint_vel += self.np_random.normal(0.0, dom_rand_joint_vec_scale*self.obs_noise_schedule, size=self.joint_number)
             imu_gyro  += self.np_random.normal(0.0, dom_rand_imu_gyro_scale *self.obs_noise_schedule, size=self.gyro_number)
@@ -279,8 +283,8 @@ class CubicDoggoEnv(gym.Env):
         self.mujoco_data.xfrc_applied[self.mujoco_root_body_id] = 0.0
         ############################################################################## initial state domain randomization
         if self.init_var_schedule > 0:
-            init_joint_pos_var_range = np.array(ENV_CONFIG["init_joint_pos_var_range"])
-            init_rot_var_range       = np.array(ENV_CONFIG["init_rot_var_range"])
+            init_joint_pos_var_range = np.array(TRAIN_CONFIG["init_joint_pos_var_range"])
+            init_rot_var_range       = np.array(TRAIN_CONFIG["init_rot_var_range"])
             # pos_var            
             pos_shift = self.np_random.uniform(*(self.init_var_schedule*init_joint_pos_var_range), size=self.joint_number)
             self.mujoco_data.qpos[-self.joint_number:] += pos_shift
@@ -354,32 +358,32 @@ class CubicDoggoEnv(gym.Env):
         for obs_idx in range(len(self.push_force_vec)):
             obs_dict["x_sim_push_force"+str(obs_idx)] = self.push_force_vec[obs_idx]
         ############################################################################## reward/penalty parameters
-        target_roll, target_pitch = ENV_CONFIG["target_roll"], ENV_CONFIG["target_pitch"]
-        target_height             = ENV_CONFIG["target_height"]
+        target_roll, target_pitch = TRAIN_CONFIG["target_roll"], TRAIN_CONFIG["target_pitch"]
+        target_height             = TRAIN_CONFIG["target_height"]
 
-        reward_roll_pitch_scale = ENV_CONFIG["reward_roll_pitch_scale"]
-        reward_roll_pitch_sigma = ENV_CONFIG["reward_roll_pitch_sigma"]             /self.rew_pen_schedule
-        reward_height_scale     = ENV_CONFIG["reward_height_scale"]
-        reward_height_sigma     = ENV_CONFIG["reward_height_sigma"]                 /self.rew_pen_schedule
-        penalty_joint_vel_scale = ENV_CONFIG["penalty_joint_vel_scale"]
-        penalty_joint_acc_scale = ENV_CONFIG["penalty_joint_acc_scale"]
-        penalty_ang_vel_scale   = ENV_CONFIG["penalty_ang_vel_scale"]               *self.rew_pen_schedule
-        penalty_yaw_rate_scale  = ENV_CONFIG["penalty_yaw_rate_scale"]              *self.rew_pen_schedule
+        reward_roll_pitch_scale = TRAIN_CONFIG["reward_roll_pitch_scale"]
+        reward_roll_pitch_sigma = TRAIN_CONFIG["reward_roll_pitch_sigma"]             /self.rew_pen_schedule
+        reward_height_scale     = TRAIN_CONFIG["reward_height_scale"]
+        reward_height_sigma     = TRAIN_CONFIG["reward_height_sigma"]                 /self.rew_pen_schedule
+        penalty_joint_vel_scale = TRAIN_CONFIG["penalty_joint_vel_scale"]
+        penalty_joint_acc_scale = TRAIN_CONFIG["penalty_joint_acc_scale"]
+        penalty_ang_vel_scale   = TRAIN_CONFIG["penalty_ang_vel_scale"]               *self.rew_pen_schedule
+        penalty_yaw_rate_scale  = TRAIN_CONFIG["penalty_yaw_rate_scale"]              *self.rew_pen_schedule
 
-        penalty_lin_vel_scale        = ENV_CONFIG["penalty_lin_vel_scale"]          *self.rew_pen_schedule
-        penalty_joint_torque_scale   = ENV_CONFIG["penalty_joint_torque_scale"]
-        penalty_joint_power_scale    = ENV_CONFIG["penalty_joint_power_scale"]
-        penalty_leg_torque_scale     = ENV_CONFIG["penalty_leg_torque_scale"]       *self.rew_pen_schedule
-        penalty_slip_scale           = ENV_CONFIG["penalty_slip_scale"]
-        penalty_joint_pos_init_scale = ENV_CONFIG["penalty_joint_pos_init_scale"]
+        penalty_lin_vel_scale        = TRAIN_CONFIG["penalty_lin_vel_scale"]          *self.rew_pen_schedule
+        penalty_joint_torque_scale   = TRAIN_CONFIG["penalty_joint_torque_scale"]
+        penalty_joint_power_scale    = TRAIN_CONFIG["penalty_joint_power_scale"]
+        penalty_leg_torque_scale     = TRAIN_CONFIG["penalty_leg_torque_scale"]       *self.rew_pen_schedule
+        penalty_slip_scale           = TRAIN_CONFIG["penalty_slip_scale"]
+        penalty_joint_pos_init_scale = TRAIN_CONFIG["penalty_joint_pos_init_scale"]
 
-        penalty_action_scale      = ENV_CONFIG["penalty_action_scale"]
-        penalty_action_rate_scale = ENV_CONFIG["penalty_action_rate_scale"]
+        penalty_action_scale      = TRAIN_CONFIG["penalty_action_scale"]
+        penalty_action_rate_scale = TRAIN_CONFIG["penalty_action_rate_scale"]
         ############################################################################## termination conditions
-        self.term_data["roll"]        = (np.pi/6 < abs(data_roll))
-        self.term_data["pitch"]       = (np.pi/6 < abs(data_pitch))
-        self.term_data["height_low"]  = (data_height < target_height-0.05)
-        self.term_data["height_high"] = (target_height+0.05 < data_height)
+        self.term_data["roll"]        = (TRAIN_CONFIG["termination_threshold_roll"] < abs(data_roll))
+        self.term_data["pitch"]       = (TRAIN_CONFIG["termination_threshold_pitch"] < abs(data_pitch))
+        self.term_data["height_low"]  = (data_height < target_height-TRAIN_CONFIG["termination_threshold_height_diff"])
+        self.term_data["height_high"] = (target_height+TRAIN_CONFIG["termination_threshold_height_diff"] < data_height)
         terminated = bool(self.term_data["roll"]       or self.term_data["pitch"] or 
                           self.term_data["height_low"] or self.term_data["height_high"])
         truncated = bool(self.mujoco_data.time >= self.truncate_max_time)               # truncated is termination without penalty
@@ -497,24 +501,24 @@ class CurriculumSchedulingCallback(BaseCallback):
         progress_ratio = self.num_timesteps/self.total_timesteps
         ############################################################################## curriculum scheduling
         obs_noise_scale, init_var_scale,  rew_pen_scale, pos_init_scale, push_force_scale = 0.0, 0.0, 0.0, 0.0, 0.0
-        if ENV_CONFIG["toggle_obs_noise_schedule"] == True:
+        if TRAIN_CONFIG["toggle_obs_noise_schedule"] == True:
             obs_noise_scale = min(1.0, 2*progress_ratio)
             self.training_env.env_method("set_obs_noise_schedule", obs_noise_scale)
-        if ENV_CONFIG["toggle_init_var_schedule"] == True:
+        if TRAIN_CONFIG["toggle_init_var_schedule"] == True:
             init_var_scale = min(1.0, 2*progress_ratio)
             self.training_env.env_method("set_init_var_schedule", init_var_scale)
-        if ENV_CONFIG["toggle_rew_pen_schedule"] == True:
-            y_final_val       = ENV_CONFIG["y_final_val"]
-            x_mid_point       = ENV_CONFIG["x_mid_point"]
-            sigmoid_steepness = ENV_CONFIG["sigmoid_steepness"]
+        if TRAIN_CONFIG["toggle_rew_pen_schedule"] == True:
+            y_final_val       = TRAIN_CONFIG["y_final_val"]
+            x_mid_point       = TRAIN_CONFIG["x_mid_point"]
+            sigmoid_steepness = TRAIN_CONFIG["sigmoid_steepness"]
             rew_pen_scale = 1.0 + (y_final_val - 1.0)/(1.0 + np.exp(-sigmoid_steepness*(progress_ratio - x_mid_point)))
             self.training_env.env_method("set_rew_pen_schedule", rew_pen_scale)
-        if ENV_CONFIG["toggle_penalty_joint_pos_init_schedul"] == True:
-            joint_pos_init_decay_rate = ENV_CONFIG["joint_pos_init_decay_rate"]
+        if TRAIN_CONFIG["toggle_penalty_joint_pos_init_schedul"] == True:
+            joint_pos_init_decay_rate = TRAIN_CONFIG["joint_pos_init_decay_rate"]
             pos_init_scale = np.exp(-joint_pos_init_decay_rate*progress_ratio)
             pos_init_scale = pos_init_scale if (pos_init_scale > self.scale_thres) else 0.0
             self.training_env.env_method("set_penalty_joint_pos_init_schedule", pos_init_scale)      
-        if ENV_CONFIG["toggle_push_force_schedule"] == True:
+        if TRAIN_CONFIG["toggle_push_force_schedule"] == True:
             push_force_scale = max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
             self.training_env.env_method("set_push_force_schedule", push_force_scale)
         ##############################################################################
@@ -548,8 +552,8 @@ class CurriculumSchedulingCallback(BaseCallback):
         return True
 ##################################################################################################################################
 def main():
-    render_mode = ENV_CONFIG["render_mode"]
-    policy_model_name = ENV_CONFIG["policy_model_name"]
+    render_mode = TRAIN_CONFIG["render_mode"]
+    policy_model_name = TRAIN_CONFIG["policy_model_name"]
     policy_model_path = PKG_SHARE_PATH.replace("install/my_robot_description/share/my_robot_description", "ppo_tensorboards/")
     os.makedirs(policy_model_path, exist_ok=True)
     policy_model_file, policy_model_idx = findSaveFile(policy_model_path, policy_model_name, ".zip")
@@ -562,9 +566,9 @@ def main():
                          net_arch=dict(pi=[256, 256, 128],                  # Policy/Actor network layers
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ##############################################################################
-    rand_seed       = ENV_CONFIG["rand_seed"]
-    ppo_checkpointN = ENV_CONFIG["ppo_checkpointN"]
-    ppo_stepN       = ENV_CONFIG["ppo_stepN"]
+    rand_seed       = TRAIN_CONFIG["rand_seed"]
+    ppo_checkpointN = TRAIN_CONFIG["ppo_checkpointN"]
+    ppo_stepN       = TRAIN_CONFIG["ppo_stepN"]
     if render_mode == "human":
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
     else:
@@ -583,7 +587,7 @@ def main():
                         verbose=1,
                         seed=rand_seed,
                         policy_kwargs=policy_kwargs,
-                        learning_rate=ENV_CONFIG["learning_rate"],
+                        learning_rate=TRAIN_CONFIG["learning_rate"],
                         target_kl=0.03,
                         vf_coef=1.0,
                         max_grad_norm=0.5,
@@ -613,7 +617,7 @@ def main():
 
         log_writers = [HumanOutputFormat(sys.stdout),
                        TensorBoardOutputFormat(policy_model_path + policy_model_name),
-                       CSVOutputFormat(policy_model_path + policy_model_name + "_log.csv")]
+                       CSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
         ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=(ppo_stepN*ppo_checkpointN))
         ppo_model.learn(total_timesteps=ppo_stepN,
@@ -622,7 +626,7 @@ def main():
                         reset_num_timesteps=False,)
         elapsed_time = time.time() - start_time
         total_counters = sum(ppo_env.env_method("get_reset_counters"))
-        train_config = {**ENV_CONFIG, "reset_counters": total_counters.tolist()}
+        train_config = {**TRAIN_CONFIG, "reset_counters": total_counters.tolist()}
         ppo_model.save(ppo_model_save_name)
         print("cubic_doggo_mujoco_ppo_stand_train(): model checkpoint saved:", ppo_model_save_name+".zip")
         ppo_env.save(ppo_model_save_name+"_vec_norm.pkl")
