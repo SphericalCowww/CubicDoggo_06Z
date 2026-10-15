@@ -173,6 +173,18 @@ def findSaveFile(policy_model_path, policy_model_name, file_type):
         return os.path.join(policy_model_path, policy_model_name+str(max(ppo_iters))+file_type), max(ppo_iters)
     else:
         return None, 0
+def exportPKLvecNorm_JSON(vec_norm_pkl_path, json_save_path):
+    print("cubic_doggo_mujoco_ppo_stand_deploy(): reading vector normalization PKL file:", vec_norm_pkl_path)
+    with open(vec_norm_pkl_path, "rb") as file_obj:
+        vec_norm = pickle.load(file_obj)
+    norm_data = {
+        "obs_mean": vec_norm.obs_rms.mean.tolist(),
+        "obs_var":  vec_norm.obs_rms.var.tolist(),
+        "clip_obs": float(getattr(vec_norm, "clip_obs", 10.0)),
+        "epsilon":  1e-8}
+    with open(json_save_path, "w") as file_obj:
+        json.dump(norm_data, file_obj, indent=4)
+    print("cubic_doggo_mujoco_ppo_stand_deploy(): exporting vector normalization to JSON:", json_save_path)
 #############################################################################################################################
 
 def main(): pass

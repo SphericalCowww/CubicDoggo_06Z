@@ -1,28 +1,60 @@
 from ament_index_python.packages import get_package_share_directory
 import os, re, time, math, copy
+import threading
 import tempfile, pickle, json
 import numpy as np
 
 import xacro
 import mujoco, mujoco.viewer
+import pygame
 import pinocchio
 import onnxruntime as ort
 import ast
 
 from ._GlobalFuncs import *
 ##################################################################################################################################
-def export_vec_norm_to_json(vec_norm_pkl_path, json_save_path):
-    print("cubic_doggo_mujoco_ppo_stand_deploy(): reading vector normalization PKL file:", vec_norm_pkl_path)
-    with open(vec_norm_pkl_path, "rb") as file_obj:
-        vec_norm = pickle.load(file_obj)
-    norm_data = {
-        "obs_mean": vec_norm.obs_rms.mean.tolist(),
-        "obs_var":  vec_norm.obs_rms.var.tolist(),
-        "clip_obs": float(getattr(vec_norm, "clip_obs", 10.0)),
-        "epsilon":  1e-8}
-    with open(json_save_path, "w") as file_obj:
-        json.dump(norm_data, file_obj, indent=4)
-    print("cubic_doggo_mujoco_ppo_stand_deploy(): exporting vector normalization to JSON:", json_save_path)
+class ArrowKeyForceController:
+    def __init__(self, force_max=5.0):
+        self.force_max = force_max
+        self.force_x   = 0.0
+        self.force_y   = 0.0
+        self.mag_scale = 0.5
+        self._running = True
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+    def _run(self):
+        pygame.init()
+        pygame.display.set_mode((280, 80))
+        pygame.display.set_caption("Keyboard Control")
+        clock = pygame.time.Clock()
+        while self._running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self._running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_w:
+                        self.mag_scale = min(1.0, self.mag_scale + 0.1)
+                    elif event.key == pygame.K_s:
+                        self.mag_scale = max(0.0, self.mag_scale - 0.1)
+            force_mag = self.force_max*self.mag_scale
+
+            keys = pygame.key.get_pressed()
+            force_x, force_y = 0.0, 0.0
+            if keys[pygame.K_LEFT]:  force_x = -force_mag
+            if keys[pygame.K_RIGHT]: force_x = +force_mag
+            if keys[pygame.K_DOWN]:  force_y = -force_mag
+            if keys[pygame.K_UP]:    force_y = +force_mag
+            with self._lock:
+                self.force_x, self.force_y = force_x, force_y
+            clock.tick(60)
+        pygame.quit()
+    def get_force(self):
+        with self._lock:
+            return self.force_x, self.force_y
+    def stop(self):
+        self._running = False
+
 ##################################################################################################################################
 def main():
     leg_prefixes = ['FL', 'FR', 'BL', 'BR']
@@ -38,7 +70,7 @@ def main():
     norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261014_1_40_vec_norm.pkl"
     onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261014_1_40.onnx"
 
-    export_vec_norm_to_json(norm_path, norm_path.replace('install/my_robot_commander_py/share/', 'src/').replace('.pkl', '.json'))
+    exportPKLvecNorm_JSON(norm_path, norm_path.replace('install/my_robot_commander_py/share/', 'src/').replace('.pkl', '.json'))
 
     pkg_share_path = get_package_share_directory('my_robot_description')
     xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
@@ -125,15 +157,20 @@ def main():
             pinocchio_joint_v_idx = pinocchio_model.joints[pinocchio_joint_id].idx_v
             pinocchio_joint_mappings.append((mujoco_joint_q_idx, mujoco_joint_v_idx, pinocchio_joint_q_idx,pinocchio_joint_v_idx))
     ################
-    text_update_time   = 0.1                         # s
-    action_delay_time  = 1.0                         # s
+    force_max = 5.0                                     # N 
+    force_ctrl = ArrowKeyForceController(force_max=force_max)
+    push_force_vec = np.zeros(6, dtype=np.float64)
+    mujoco_root_body_id = mujoco_model.body('robot_root').id
+    ##############################################################################################################################
+    text_update_time   = 0.1                            # s
+    action_delay_time  = 1.0                            # s
     delta_t = mujoco_model.opt.timestep
     ##############################################################################################################################
 
     initial_ctrl = copy.deepcopy(mujoco_data.ctrl)
     last_action  = np.zeros(joint_number, dtype=np.float32)
-    ray_geomid         = np.zeros(1, dtype=np.int32)
-    last_text_update   = 0.0
+    ray_geomid       = np.zeros(1, dtype=np.int32)
+    last_text_update = 0.0
     is_standing = False
     ray_geomid    = np.zeros(1, dtype=np.int32)
     ray_direction = np.array([0.0, 0.0, -1.0], dtype=np.float64)
@@ -180,6 +217,13 @@ def main():
                 mujoco_data.ctrl[:] = target_ctrl
                 last_action = action.copy()
             ###########################################
+            force_x, force_y = force_ctrl.get_force()
+            push_force_vec[:] = 0.0
+            push_force_vec[0] = force_x
+            push_force_vec[1] = force_y
+            mujoco_data.xfrc_applied[mujoco_root_body_id] = push_force_vec
+            renderForceArrow(viewer, mujoco_data, mujoco_root_body_id, push_force_vec[:3], force_max)
+            ###########################################
             for _ in range(stepN_per_action):
                 mujoco.mj_step(mujoco_model, mujoco_data)
            
@@ -195,6 +239,7 @@ def main():
             time_until_next_step = delta_t*stepN_per_action - (time.time() - step_start) 
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
+    force_ctrl.stop()
 ##################################################################################################################################
 if __name__ == '__main__': main()
 
