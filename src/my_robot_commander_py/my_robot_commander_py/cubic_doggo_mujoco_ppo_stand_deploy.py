@@ -33,13 +33,16 @@ def main():
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
 
     reinforcement_path = get_package_share_directory('my_robot_commander_py')
-    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_vecNorm.pkl')
-    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_model.onnx')
+#    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_vecNorm.pkl')
+#    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_model.onnx')
+    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261014_1_40_vec_norm.pkl"
+    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261014_1_40.onnx"
+
     export_vec_norm_to_json(norm_path, norm_path.replace('install/my_robot_commander_py/share/', 'src/').replace('.pkl', '.json'))
 
     pkg_share_path = get_package_share_directory('my_robot_description')
     xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
-    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml')
+    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand_slope.xml')
     usdf_file      =                                      'cubic_doggo.mujoco.urdf'
     
     ################
