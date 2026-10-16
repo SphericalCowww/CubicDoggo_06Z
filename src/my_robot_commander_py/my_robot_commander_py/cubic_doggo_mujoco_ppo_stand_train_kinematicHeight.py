@@ -26,8 +26,8 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                       # for visualization
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_1_",
-            #"policy_model_name":    "cubic_doggo_stand_261014_1_",
+            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_6_",
+            #"policy_model_name":    "cubic_doggo_stand_261015_1_",
             "rand_seed":            1,
             "ppo_checkpointN":      40,
             "ppo_stepN":            1_000_000,                                      # minimum is n_envs*n_steps, 16*2048 = 32768
@@ -61,7 +61,7 @@ TRAIN_CONFIG = {
                 "x_mid_point":                          0.4,
                 "sigmoid_steepness":                    12.0,
             "toggle_penalty_joint_pos_init_schedul":    True,
-                "joint_pos_init_decay_rate":            5.0,
+                "joint_pos_init_decay_rate":            10.0,
             "toggle_push_force_schedule":               False,
                 "push_force_max":                       10.0,                       # N
                 "push_interval":                        5,                          # s
@@ -71,7 +71,7 @@ TRAIN_CONFIG = {
             "target_pitch":                             0.0,                        # rad
             "target_height":                            0.14984,                    # m, 0.15689 for previleged
             "reward_roll_pitch_scale":                  1.0,
-            "reward_roll_pitch_sigma":                  np.pi/180,                  # ~rad
+            "reward_roll_pitch_sigma":                  np.pi/45,                  # ~rad
             "reward_height_scale":                      1.0,
             "reward_height_sigma":                      0.02,                       # m
             "penalty_joint_vel_scale":                  1.0E-3,
@@ -428,10 +428,10 @@ class CubicDoggoEnv(gym.Env):
         infos_dict["obs_dict"] = obs_dict
         ### 
         reward_dict = {}
-        reward_dict["reward_roll_pitch"] = reward_roll_pitch_scale*\
-                                           np.exp(-residual_orientation/2*np.square(reward_roll_pitch_sigma))
-        reward_dict["reward_height"] = reward_height_scale*\
-                                       np.exp(-residual_height/2*np.square(reward_height_sigma))
+        reward_roll_pitch = reward_roll_pitch_scale*np.exp(-residual_orientation/(2*np.square(reward_roll_pitch_sigma)))
+        reward_height     = reward_height_scale*np.exp(-residual_height/(2*np.square(reward_height_sigma)))
+        reward_dict["reward_roll_pitch"] = reward_roll_pitch
+        reward_dict["reward_height"]     = reward_height
         reward_dict["penalty_joint_vel"]    = -penalty_joint_vel_scale   *np.sum(np.square(data_joint_vel))
         reward_dict["penalty_joint_acc"]    = -penalty_joint_acc_scale   *np.sum(residual_vel)
         reward_dict["penalty_ang_vel"]      = -penalty_ang_vel_scale     *np.sum(np.square(data_gyro))
@@ -464,7 +464,8 @@ class CubicDoggoEnv(gym.Env):
         if (self.mujoco_data.time - self.last_text_update) > self.text_update_time: 
             data_roll_deg, data_pitch_deg = math.degrees(data_roll),  math.degrees(data_pitch)
             telemetry_str  = f"Roll:{data_roll_deg:9.5f}deg | Pitch:{data_pitch_deg:9.5f}deg | Height:{data_height:9.5f}m | "
-            telemetry_str += f"Time:{self.mujoco_data.time:9.5f}s"
+            telemetry_str += f"Time:{self.mujoco_data.time:9.5f}s\n"
+            telemetry_str += f"Reward: Roll_Pitch:{reward_roll_pitch:9.5f} | Height:{reward_height:9.5f} "
             if self.render_mode == "human":
                 self.viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_100, mujoco.mjtGridPos.mjGRID_TOPRIGHT,
                                       "TELEMETRY", telemetry_str))
@@ -617,11 +618,11 @@ def main():
     for ppo_idx in range(ppo_checkpointN-policy_model_idx+int(render_mode == "human")):
         ppo_checkpoint_idx = ppo_idx + policy_model_idx + 1 
         ppo_model_save_name = policy_model_path + policy_model_name + str(ppo_checkpoint_idx)
-
-        log_writers = [HumanOutputFormat(sys.stdout),
-                       TensorBoardOutputFormat(policy_model_path + policy_model_name),
-                       CSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
-        ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
+        if TRAIN_CONFIG["render_mode"] != "human":
+            log_writers = [HumanOutputFormat(sys.stdout),
+                           TensorBoardOutputFormat(policy_model_path + policy_model_name),
+                           CSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
+            ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=(ppo_stepN*ppo_checkpointN))
         ppo_model.learn(total_timesteps=ppo_stepN,
                         callback=curriculum_callback,

@@ -67,8 +67,8 @@ def main():
     reinforcement_path = get_package_share_directory('my_robot_commander_py')
 #    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_vecNorm.pkl')
 #    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_model.onnx')
-    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261014_1_40_vec_norm.pkl"
-    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261014_1_40.onnx"
+    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261015_1_40_vec_norm.pkl"
+    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261015_1_40.onnx"
 
     exportPKLvecNorm_JSON(norm_path, norm_path.replace('install/my_robot_commander_py/share/', 'src/').replace('.pkl', '.json'))
 
