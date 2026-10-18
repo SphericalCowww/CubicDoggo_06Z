@@ -13,49 +13,6 @@ import ast
 
 from ._GlobalFuncs import *
 ##################################################################################################################################
-class ArrowKeyForceController:
-    def __init__(self, force_max=5.0):
-        self.force_max = force_max
-        self.force_x   = 0.0
-        self.force_y   = 0.0
-        self.mag_scale = 0.5
-        self._running = True
-        self._lock = threading.Lock()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-        self._thread.start()
-    def _run(self):
-        pygame.init()
-        pygame.display.set_mode((280, 80))
-        pygame.display.set_caption("Keyboard Control")
-        clock = pygame.time.Clock()
-        while self._running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self._running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_w:
-                        self.mag_scale = min(1.0, self.mag_scale + 0.1)
-                    elif event.key == pygame.K_s:
-                        self.mag_scale = max(0.0, self.mag_scale - 0.1)
-            force_mag = self.force_max*self.mag_scale
-
-            keys = pygame.key.get_pressed()
-            force_x, force_y = 0.0, 0.0
-            if keys[pygame.K_LEFT]:  force_x = -force_mag
-            if keys[pygame.K_RIGHT]: force_x = +force_mag
-            if keys[pygame.K_DOWN]:  force_y = -force_mag
-            if keys[pygame.K_UP]:    force_y = +force_mag
-            with self._lock:
-                self.force_x, self.force_y = force_x, force_y
-            clock.tick(60)
-        pygame.quit()
-    def get_force(self):
-        with self._lock:
-            return self.force_x, self.force_y
-    def stop(self):
-        self._running = False
-
-##################################################################################################################################
 def main():
     leg_prefixes = ['FL', 'FR', 'BL', 'BR']
     joint_names = []
@@ -65,19 +22,23 @@ def main():
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
 
     reinforcement_path = get_package_share_directory('my_robot_commander_py')
-#    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_vecNorm.pkl')
-#    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_model.onnx')
-    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261015_1_40_vec_norm.pkl"
-    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261015_1_40.onnx"
+#    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand0_vecNorm.pkl')
+#    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand0_model.onnx')
+    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_vecNorm.pkl')
+    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_model.onnx')
+#    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261016_6_40_vec_norm.pkl"
+#    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261016_6_40.onnx"
 
     exportPKLvecNorm_JSON(norm_path, norm_path.replace('install/my_robot_commander_py/share/', 'src/').replace('.pkl', '.json'))
 
     pkg_share_path = get_package_share_directory('my_robot_description')
     xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
-    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand_slope.xml')
+    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml')
+#    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand_slope.xml')
     usdf_file      =                                      'cubic_doggo.mujoco.urdf'
     
     ################
+    print("cubic_doggo_mujoco_ppo_stand_deploy(): loading model ONNX file:", onnx_path)
     ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
     input_name  = ort_session.get_inputs()[0].name
     output_name = ort_session.get_outputs()[0].name
@@ -88,6 +49,7 @@ def main():
             env_config[key] = ast.literal_eval(val)
         except (ValueError, SyntaxError):
             env_config[key] = val
+        print('  '+key+':', env_config[key])
     joint_number = env_config["joint_number"]
     action_scale = env_config["action_scale"]
     action_range = env_config["action_range"]
@@ -240,6 +202,66 @@ def main():
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
     force_ctrl.stop()
+##################################################################################################################################
+class ArrowKeyForceController:
+    def __init__(self, force_max=5.0):
+        self.force_max = force_max
+        self.force_x   = 0.0
+        self.force_y   = 0.0
+        self.mag_scale = 0.5
+        self._running = True
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+    def _run(self):
+        os.environ['SDL_VIDEO_WINDOW_POS'] = '1800, 600'
+        pygame.init()
+        pygame.display.set_caption("Keyboard Control")
+        pygame_screen = pygame.display.set_mode((250, 100))
+        pygame_font   = pygame.font.Font(None, 24)
+        pygame_clock  = pygame.time.Clock()
+        while self._running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self._running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_w:
+                        self.mag_scale = min(1.0, self.mag_scale + 0.1)
+                    elif event.key == pygame.K_s:
+                        self.mag_scale = max(0.0, self.mag_scale - 0.1)
+            force_mag = self.force_max*self.mag_scale
+
+            keys = pygame.key.get_pressed()
+            force_x, force_y = 0.0, 0.0
+            if keys[pygame.K_LEFT]:  force_x = -force_mag
+            if keys[pygame.K_RIGHT]: force_x = +force_mag
+            if keys[pygame.K_DOWN]:  force_y = -force_mag
+            if keys[pygame.K_UP]:    force_y = +force_mag
+            with self._lock:
+                self.force_x, self.force_y = force_x, force_y
+            
+            display_text  = "w: increases force magnitude\n"
+            display_text += "s: decreases force magnitude\n"
+            display_text += "arrow keys: force directions\n"
+            display_text += f"force: {force_mag:.1f} N"
+            pygame_display1 = pygame_font.render("w: increases force magnitude", True, (255, 255, 255))
+            pygame_display2 = pygame_font.render("s: decreases force magnitude", True, (255, 255, 255))
+            pygame_display3 = pygame_font.render("arrow keys: force directions", True, (255, 255, 255))
+            pygame_display4 = pygame_font.render( f"force: {force_mag:.1f} N",   True, (255, 255, 255))
+            pygame_screen.fill((0, 0, 0))
+            pygame_screen.blit(pygame_display1, (5, 5))
+            pygame_screen.blit(pygame_display2, (5, 25))
+            pygame_screen.blit(pygame_display3, (5, 45))
+            pygame_screen.blit(pygame_display4, (5, 65))
+            pygame.display.flip()
+
+            pygame_clock.tick(60)
+        pygame.quit()
+    def get_force(self):
+        with self._lock:
+            return self.force_x, self.force_y
+    def stop(self):
+        self._running = False
 ##################################################################################################################################
 if __name__ == '__main__': main()
 

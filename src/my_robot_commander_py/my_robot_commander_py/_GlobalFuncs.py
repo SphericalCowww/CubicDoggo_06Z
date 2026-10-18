@@ -100,6 +100,7 @@ def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_s
         target_z -= z_offset
         target_feet.append(np.array([target_x, target_y, target_z]))
     return target_feet
+#############################################################################################################################
 def renderForceArrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push_force_max):
     if viewer is None:
         return
@@ -113,15 +114,33 @@ def renderForceArrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push_f
     viewer_scn.ngeom = 0
 
     start_pos = np.array(mujoco_data.xpos[mujoco_body_id], dtype=np.float64)
-    if float(np.linalg.norm(force_vec)) < 1e-6:
-        return
-    end_pos = start_pos + force_vec
-        
+    end_pos   = start_pos + force_vec
+    
     viewer_geom = viewer_scn.geoms[viewer_scn.ngeom]
-    mujoco.mjv_connector(viewer_geom, mujoco.mjtGeom.mjGEOM_ARROW, arrow_radius, start_pos, end_pos)
-    viewer_geom.rgba[:] = np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
+    mujoco.mjv_initGeom(
+        viewer_geom,
+        type=mujoco.mjtGeom.mjGEOM_ARROW,
+        size=np.zeros(3),
+        pos=np.zeros(3),
+        mat=np.eye(3).flatten(),
+        rgba=np.array([1.0, 0.0, 0.0, 1.0], dtype=np.float32)
+    )
+    mujoco.mjv_connector(
+        viewer_geom, 
+        mujoco.mjtGeom.mjGEOM_ARROW, 
+        arrow_radius, 
+        start_pos, 
+        end_pos
+    )
     viewer_scn.ngeom += 1
 #############################################################################################################################
+def findSaveFile(policy_model_path, policy_model_name, file_type):
+    ppo_files = glob.glob(os.path.join(policy_model_path, policy_model_name+"*"+file_type))
+    if len(ppo_files) != 0:
+        ppo_iters = [int(ppo_file.split(policy_model_name)[1].split(file_type)[0]) for ppo_file in ppo_files]
+        return os.path.join(policy_model_path, policy_model_name+str(max(ppo_iters))+file_type), max(ppo_iters)
+    else:
+        return None, 0
 def exportPPO_ONNX(ppo_model, obs_dim, onnx_save_path, config=None):
     policy_net = ppo_model.policy
     policy_net.to("cpu")
@@ -159,23 +178,18 @@ def exportPPO_ONNX(ppo_model, obs_dim, onnx_save_path, config=None):
             meta.value = str(val)
         onnx.save(onnx_model, onnx_save_path)
 def extractONNXconfig(onnx_path):
+    print("extractONNXconfig(): loading model ONNX file:", onnx_path)
     ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
     env_config = {}
     for key, val in ort_session.get_modelmeta().custom_metadata_map.items():
         try:
             env_config[key] = ast.literal_eval(val)
         except (ValueError, SyntaxError):
-            env_config[key] = val 
+            env_config[key] = val
+        print('  '+key+':', env_config[key])  
     return env_config
-def findSaveFile(policy_model_path, policy_model_name, file_type):
-    ppo_files = glob.glob(os.path.join(policy_model_path, policy_model_name+"*"+file_type))
-    if len(ppo_files) != 0:
-        ppo_iters = [int(ppo_file.split(policy_model_name)[1].split(file_type)[0]) for ppo_file in ppo_files]
-        return os.path.join(policy_model_path, policy_model_name+str(max(ppo_iters))+file_type), max(ppo_iters)
-    else:
-        return None, 0
 def exportPKLvecNorm_JSON(vec_norm_pkl_path, json_save_path):
-    print("cubic_doggo_mujoco_ppo_stand_deploy(): reading vector normalization PKL file:", vec_norm_pkl_path)
+    print("exportPKLvecNorm_JSON(): loading vector normalization PKL file:", vec_norm_pkl_path)
     with open(vec_norm_pkl_path, "rb") as file_obj:
         vec_norm = pickle.load(file_obj)
     norm_data = {
@@ -185,7 +199,7 @@ def exportPKLvecNorm_JSON(vec_norm_pkl_path, json_save_path):
         "epsilon":  1e-8}
     with open(json_save_path, "w") as file_obj:
         json.dump(norm_data, file_obj, indent=4)
-    print("cubic_doggo_mujoco_ppo_stand_deploy(): exporting vector normalization to JSON:", json_save_path)
+    print("exportPKLvecNorm_JSON(): exporting vector normalization to JSON:", json_save_path)
 #############################################################################################################################
 
 def main(): pass

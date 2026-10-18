@@ -22,24 +22,24 @@ PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
 ##################################################################################################################################
 TRAIN_CONFIG = {
             "xacro_path": os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.urdf.xacro'),
-            "mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_stand_slope.xml'),
+            "mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml'),
 
             "render_mode":          None,
-            #"render_mode":          "human",                                       # for visualization
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_6_",
-            #"policy_model_name":    "cubic_doggo_stand_261015_1_",
+            #"render_mode":          "human",                                        # for visualization
+            #"policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand3_",
+            "policy_model_name":    "cubic_doggo_stand_261017_stand3_",
             "rand_seed":            1,
-            "ppo_checkpointN":      40,
-            "ppo_stepN":            1_000_000,                                      # minimum is n_envs*n_steps, 16*2048 = 32768
-
             "learning_rate":        1.0E-5,
+            "ppo_stepN":            1_000_000,                                      # minimum is n_envs*n_steps, 16*2048 = 32768
+            "ppo_checkpointN":      60,
+            "curriculum_maxN":      1_000_000 * 40,                                 # when curriculum arrives at final value
 
             "joint_number":                             12,
             "gyro_number":                              3,
             
             "time_per_step":                            0.003,                      # s, default = 0.002
             "stepN_per_action":                         4,                          # steps
-            "skip_first_stepN":                         20,                          # steps 
+            "skip_first_stepN":                         20,                         # steps 
             "truncate_max_time":                        20.0,                       # s
             "text_update_time":                         1.0,                        # s
 
@@ -61,19 +61,20 @@ TRAIN_CONFIG = {
                 "x_mid_point":                          0.4,
                 "sigmoid_steepness":                    12.0,
             "toggle_penalty_joint_pos_init_schedul":    True,
-                "joint_pos_init_decay_rate":            10.0,
-            "toggle_push_force_schedule":               False,
-                "push_force_max":                       10.0,                       # N
-                "push_interval":                        5,                          # s
-                "push_duration":                        0.1,                        # s
+                "joint_pos_init_decay_rate":            5.0,
+            "toggle_push_force_schedule":               True,
+                "push_force_max":                       5.0,                       # N
+                "push_interval":                        2.0,                        # s
+                "push_duration":                        1.0,                        # s
 
             "target_roll":                              0.0,                        # rad
             "target_pitch":                             0.0,                        # rad
             "target_height":                            0.14984,                    # m, 0.15689 for previleged
             "reward_roll_pitch_scale":                  1.0,
-            "reward_roll_pitch_sigma":                  np.pi/45,                  # ~rad
+            "reward_roll_pitch_sigma":                  np.pi/90,                  # ~rad
             "reward_height_scale":                      1.0,
-            "reward_height_sigma":                      0.02,                       # m
+            "reward_height_sigma":                      0.01,                       # m
+            "reward_survival_stepN_scale":              0.1,
             "penalty_joint_vel_scale":                  1.0E-3,
             "penalty_joint_acc_scale":                  1.0E-5,
             "penalty_ang_vel_scale":                    0.5,
@@ -365,6 +366,7 @@ class CubicDoggoEnv(gym.Env):
         reward_roll_pitch_sigma = TRAIN_CONFIG["reward_roll_pitch_sigma"]             /self.rew_pen_schedule
         reward_height_scale     = TRAIN_CONFIG["reward_height_scale"]
         reward_height_sigma     = TRAIN_CONFIG["reward_height_sigma"]                 /self.rew_pen_schedule
+        reward_survival_scale   = TRAIN_CONFIG["reward_survival_scale"]
         penalty_joint_vel_scale = TRAIN_CONFIG["penalty_joint_vel_scale"]
         penalty_joint_acc_scale = TRAIN_CONFIG["penalty_joint_acc_scale"]
         penalty_ang_vel_scale   = TRAIN_CONFIG["penalty_ang_vel_scale"]               *self.rew_pen_schedule
@@ -430,8 +432,11 @@ class CubicDoggoEnv(gym.Env):
         reward_dict = {}
         reward_roll_pitch = reward_roll_pitch_scale*np.exp(-residual_orientation/(2*np.square(reward_roll_pitch_sigma)))
         reward_height     = reward_height_scale*np.exp(-residual_height/(2*np.square(reward_height_sigma)))
+        reward_survival   = reward_survival_scale       # flat alive bonus. Reward already accumulates over step alive
+        #reward_survival   = reward_survival_scale*(self.mujoco_data.time/self.truncate_max_time)
         reward_dict["reward_roll_pitch"] = reward_roll_pitch
         reward_dict["reward_height"]     = reward_height
+        reward_dict["reward_survival"]   = reward_survival
         reward_dict["penalty_joint_vel"]    = -penalty_joint_vel_scale   *np.sum(np.square(data_joint_vel))
         reward_dict["penalty_joint_acc"]    = -penalty_joint_acc_scale   *np.sum(residual_vel)
         reward_dict["penalty_ang_vel"]      = -penalty_ang_vel_scale     *np.sum(np.square(data_gyro))
@@ -451,7 +456,9 @@ class CubicDoggoEnv(gym.Env):
         reward_ratio_dict = {}
         reward_ratio_dict["reward_roll_pitch_ratio"] = reward_dict["reward_roll_pitch"]/reward_roll_pitch_scale
         reward_ratio_dict["reward_height_ratio"]     = reward_dict["reward_height"]    /reward_height_scale
-        reward_ratio_dict["reward_full_ratio"]       = reward/(reward_roll_pitch_scale + reward_height_scale)
+        reward_ratio_dict["reward_survival_ratio"]   = reward_dict["reward_survival"]  /reward_survival_scale
+        reward_ratio_dict["reward_full_ratio"]       = reward/(reward_roll_pitch_scale+reward_height_scale+reward_survival_scale)
+        
         infos_dict["reward_ratio_dict"] = reward_ratio_dict
 
         self.last_joint_vel = data_joint_vel.copy()
@@ -502,7 +509,7 @@ class CurriculumSchedulingCallback(BaseCallback):
         self.total_timesteps = total_timesteps
         self.scale_thres     = scale_thres
     def _on_step(self) -> bool:
-        progress_ratio = self.num_timesteps/self.total_timesteps
+        progress_ratio = min(1.0, self.num_timesteps/self.total_timesteps)
         ############################################################################## curriculum scheduling
         obs_noise_scale, init_var_scale,  rew_pen_scale, pos_init_scale, push_force_scale = 0.0, 0.0, 0.0, 0.0, 0.0
         if TRAIN_CONFIG["toggle_obs_noise_schedule"] == True:
@@ -571,8 +578,12 @@ def main():
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ##############################################################################
     rand_seed       = TRAIN_CONFIG["rand_seed"]
-    ppo_checkpointN = TRAIN_CONFIG["ppo_checkpointN"]
+    learning_rate   = TRAIN_CONFIG["learning_rate"]
     ppo_stepN       = TRAIN_CONFIG["ppo_stepN"]
+    ppo_checkpointN = TRAIN_CONFIG["ppo_checkpointN"]
+    curriculum_maxN = TRAIN_CONFIG["curriculum_maxN"]
+    if curriculum_maxN is None:
+         curriculum_maxN = ppo_stepN*ppo_checkpointN
     if render_mode == "human":
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
     else:
@@ -591,7 +602,7 @@ def main():
                         verbose=1,
                         seed=rand_seed,
                         policy_kwargs=policy_kwargs,
-                        learning_rate=TRAIN_CONFIG["learning_rate"],
+                        learning_rate=learning_rate,
                         target_kl=0.03,
                         vf_coef=1.0,
                         max_grad_norm=0.5,
@@ -623,7 +634,7 @@ def main():
                            TensorBoardOutputFormat(policy_model_path + policy_model_name),
                            CSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
             ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
-        curriculum_callback = CurriculumSchedulingCallback(total_timesteps=(ppo_stepN*ppo_checkpointN))
+        curriculum_callback = CurriculumSchedulingCallback(total_timesteps=curriculum_maxN)
         ppo_model.learn(total_timesteps=ppo_stepN,
                         callback=curriculum_callback,
                         tb_log_name=policy_model_name,
