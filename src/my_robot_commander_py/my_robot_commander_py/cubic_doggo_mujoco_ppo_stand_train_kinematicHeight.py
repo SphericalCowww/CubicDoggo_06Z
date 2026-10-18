@@ -632,7 +632,8 @@ def main():
         if TRAIN_CONFIG["render_mode"] != "human":
             log_writers = [HumanOutputFormat(sys.stdout),
                            TensorBoardOutputFormat(policy_model_path + policy_model_name),
-                           CSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
+                           #CSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
+                           AppendCSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
             ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=curriculum_maxN)
         ppo_model.learn(total_timesteps=ppo_stepN,

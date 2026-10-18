@@ -1,12 +1,5 @@
 import os, sys, pathlib, time, re, glob, math, copy
-import tempfile, pickle, json
 import numpy as np
-import mujoco, mujoco.viewer
-import pinocchio
-import torch
-import onnx
-import onnxruntime as ort
-import ast
 
 #############################################################################################################################
 def quat2euler(w, x, y, z):
@@ -27,6 +20,7 @@ def quat2euler(w, x, y, z):
     return roll, pitch, yaw
 
 #############################################################################################################################
+import pinocchio
 def getLegIK(pinocchio_model, pinocchio_data, pinocchio_joint_inits, pinocchio_leg_ids, target_positions, 
              damping_factor=1e-6, delta_time=0.1, max_iter=100, eps=1e-4):
     joint_angle = pinocchio_joint_inits.copy()
@@ -101,6 +95,7 @@ def sineWalkGait_getTarget(home_positions, gait_phase, swing_fraction, lift, x_s
         target_feet.append(np.array([target_x, target_y, target_z]))
     return target_feet
 #############################################################################################################################
+import mujoco, mujoco.viewer
 def renderForceArrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push_force_max):
     if viewer is None:
         return
@@ -134,6 +129,31 @@ def renderForceArrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push_f
     )
     viewer_scn.ngeom += 1
 #############################################################################################################################
+from stable_baselines3.common.logger import CSVOutputFormat
+import csv
+class AppendCSVOutputFormat(CSVOutputFormat):
+    def __init__(self, filename, separator=",", key_excluded=None):
+        self.filename = filename
+        self.separator = separator
+        self.key_excluded = key_excluded or ()
+        self.file = None
+        self.log = None
+        self.name_to_excluded = {}
+        self._header_written = os.path.exists(filename) and os.path.getsize(filename) > 0
+    def write(self, key_values, key_excluded, step=0):
+        self.log = key_values
+        self.name_to_excluded = key_excluded
+        if self.log is None or self.name_to_excluded is None:
+            return
+        key_values = {k: v for k, v in self.log.items()
+                      if self.name_to_excluded.get(k, None) != (None,)}
+        if not self._header_written:
+            with open(self.filename, "w+t") as f:
+                f.write(self.separator.join(key_values.keys()) + "\n")
+            self._header_written = True
+        with open(self.filename, "a") as f:
+            f.write(self.separator.join(map(str, key_values.values())) + "\n")
+        self.log.clear()
 def findSaveFile(policy_model_path, policy_model_name, file_type):
     ppo_files = glob.glob(os.path.join(policy_model_path, policy_model_name+"*"+file_type))
     if len(ppo_files) != 0:
@@ -141,6 +161,10 @@ def findSaveFile(policy_model_path, policy_model_name, file_type):
         return os.path.join(policy_model_path, policy_model_name+str(max(ppo_iters))+file_type), max(ppo_iters)
     else:
         return None, 0
+import torch
+import onnx
+import onnxruntime as ort
+import ast
 def exportPPO_ONNX(ppo_model, obs_dim, onnx_save_path, config=None):
     policy_net = ppo_model.policy
     policy_net.to("cpu")
@@ -188,6 +212,7 @@ def extractONNXconfig(onnx_path):
             env_config[key] = val
         print('  '+key+':', env_config[key])  
     return env_config
+import pickle, json
 def exportPKLvecNorm_JSON(vec_norm_pkl_path, json_save_path):
     print("exportPKLvecNorm_JSON(): loading vector normalization PKL file:", vec_norm_pkl_path)
     with open(vec_norm_pkl_path, "rb") as file_obj:

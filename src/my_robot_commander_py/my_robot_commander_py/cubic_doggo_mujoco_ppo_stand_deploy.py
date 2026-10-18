@@ -205,10 +205,14 @@ def main():
 ##################################################################################################################################
 class ArrowKeyForceController:
     def __init__(self, force_max=5.0):
-        self.force_max = force_max
-        self.force_x   = 0.0
-        self.force_y   = 0.0
-        self.mag_scale = 0.5
+        self.mag_scale         = 0.5
+        self.force_angle_res   = 3.0            # deg
+        self.force_angle_swipe = 30             # Hz
+        self.force_max       = force_max        # N
+        self.force_x         = 0.0              # N
+        self.force_y         = 0.0              # N
+        self.force_angle_val = 0.0              # deg
+        self.last_angle_tick = 0.0
         self._running = True
         self._lock = threading.Lock()
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -217,9 +221,11 @@ class ArrowKeyForceController:
         os.environ['SDL_VIDEO_WINDOW_POS'] = '1800, 600'
         pygame.init()
         pygame.display.set_caption("Keyboard Control")
-        pygame_screen = pygame.display.set_mode((250, 100))
+        pygame_screen = pygame.display.set_mode((280, 140))
         pygame_font   = pygame.font.Font(None, 24)
         pygame_clock  = pygame.time.Clock()
+
+        self.last_angle_tick = time.monotonic()
         while self._running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -229,32 +235,53 @@ class ArrowKeyForceController:
                         self.mag_scale = min(1.0, self.mag_scale + 0.1)
                     elif event.key == pygame.K_s:
                         self.mag_scale = max(0.0, self.mag_scale - 0.1)
-            force_mag = self.force_max*self.mag_scale
-
-            keys = pygame.key.get_pressed()
-            force_x, force_y = 0.0, 0.0
-            if keys[pygame.K_LEFT]:  force_x = -force_mag
-            if keys[pygame.K_RIGHT]: force_x = +force_mag
-            if keys[pygame.K_DOWN]:  force_y = -force_mag
-            if keys[pygame.K_UP]:    force_y = +force_mag
+                    elif event.key == pygame.K_LEFT:
+                        self.force_angle_val = (self.force_angle_val - self.force_angle_res)%360.0
+                        self.last_angle_tick = time.monotonic()
+                    elif event.key == pygame.K_RIGHT:
+                        self.force_angle_val = (self.force_angle_val + self.force_angle_res)%360.0
+                        self.last_angle_tick = time.monotonic()
+            pygame_now  = time.monotonic()
+            pygame_keys = pygame.key.get_pressed()
+            left_held  = pygame_keys[pygame.K_LEFT]
+            right_held = pygame_keys[pygame.K_RIGHT]
+            hold_period = 1.0/self.force_angle_swipe
+            if (left_held or right_held) and (pygame_now - self.last_angle_tick) >= hold_period:
+                if left_held:
+                    self.force_angle_val = (self.force_angle_val - self.force_angle_res)%360.0
+                if right_held:
+                    self.force_angle_val = (self.force_angle_val + self.force_angle_res)%360.0
+                self.last_angle_tick = pygame_now
+            up_held   = pygame_keys[pygame.K_UP]
+            down_held = pygame_keys[pygame.K_DOWN]
+            force_sign = 0
+            if up_held and not down_held:
+                force_sign = +1
+            elif down_held and not up_held:
+                force_sign = -1
+            
+            force_mag   = force_sign*self.force_max*self.mag_scale
+            force_theta = math.radians(self.force_angle_val)
+            force_x     = -force_mag*math.cos(force_theta)
+            force_y     = -force_mag*math.sin(force_theta)
             with self._lock:
                 self.force_x, self.force_y = force_x, force_y
             
-            display_text  = "w: increases force magnitude\n"
-            display_text += "s: decreases force magnitude\n"
-            display_text += "arrow keys: force directions\n"
-            display_text += f"force: {force_mag:.1f} N"
-            pygame_display1 = pygame_font.render("w: increases force magnitude", True, (255, 255, 255))
-            pygame_display2 = pygame_font.render("s: decreases force magnitude", True, (255, 255, 255))
-            pygame_display3 = pygame_font.render("arrow keys: force directions", True, (255, 255, 255))
-            pygame_display4 = pygame_font.render( f"force: {force_mag:.1f} N",   True, (255, 255, 255))
+            pygame_display1 = pygame_font.render("w: increases force magnitude",           True, (255, 255, 255))
+            pygame_display2 = pygame_font.render("s: decreases force magnitude",           True, (255, 255, 255))
+            pygame_display3 = pygame_font.render("left/right: change force direction",     True, (255, 255, 255))
+            pygame_display4 = pygame_font.render("up/down: applying force",                True, (255, 255, 255))
+            pygame_display5 = pygame_font.render(f"force: {force_mag:.1f} N",               True, (255, 255, 255))
+            pygame_display6 = pygame_font.render(f"angle: {self.force_angle_val:.1f} deg", True, (255, 255, 255))
             pygame_screen.fill((0, 0, 0))
             pygame_screen.blit(pygame_display1, (5, 5))
             pygame_screen.blit(pygame_display2, (5, 25))
             pygame_screen.blit(pygame_display3, (5, 45))
             pygame_screen.blit(pygame_display4, (5, 65))
+            pygame_screen.blit(pygame_display5, (5, 105))
+            pygame_screen.blit(pygame_display6, (5, 125))
+            
             pygame.display.flip()
-
             pygame_clock.tick(60)
         pygame.quit()
     def get_force(self):
