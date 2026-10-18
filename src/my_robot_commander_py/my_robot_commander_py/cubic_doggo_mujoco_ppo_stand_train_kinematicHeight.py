@@ -26,12 +26,12 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            #"policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand3_",
-            "policy_model_name":    "cubic_doggo_stand_261017_stand3_",
+            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand1_",
+            #"policy_model_name":    "cubic_doggo_stand_261017_stand3_",
             "rand_seed":            1,
             "learning_rate":        1.0E-5,
             "ppo_stepN":            1_000_000,                                      # minimum is n_envs*n_steps, 16*2048 = 32768
-            "ppo_checkpointN":      60,
+            "ppo_checkpointN":      80,
             "curriculum_maxN":      1_000_000 * 40,                                 # when curriculum arrives at final value
 
             "joint_number":                             12,
@@ -43,10 +43,10 @@ TRAIN_CONFIG = {
             "truncate_max_time":                        20.0,                       # s
             "text_update_time":                         1.0,                        # s
 
-            "action_scale": 0.2,
-            "action_range": [-1.0, 1.0],
-            "action_delta_range": [-0.05, 0.05],
-            "action_filter_alpha": 0.2,
+            "action_scale":                             0.2,
+            "action_range":                             [-1.0, 1.0],
+            "action_delta_range":                       [-0.05, 0.05],
+            "action_filter_alpha":                      0.2,
 
             "toggle_obs_noise_schedule":                True,
                 "dom_rand_joint_pos_scale":             np.pi/180,
@@ -74,7 +74,7 @@ TRAIN_CONFIG = {
             "reward_roll_pitch_sigma":                  np.pi/90,                  # ~rad
             "reward_height_scale":                      1.0,
             "reward_height_sigma":                      0.01,                       # m
-            "reward_survival_stepN_scale":              0.1,
+            "reward_survival_scale":                    0.2,
             "penalty_joint_vel_scale":                  1.0E-3,
             "penalty_joint_acc_scale":                  1.0E-5,
             "penalty_ang_vel_scale":                    0.5,
@@ -433,7 +433,7 @@ class CubicDoggoEnv(gym.Env):
         reward_roll_pitch = reward_roll_pitch_scale*np.exp(-residual_orientation/(2*np.square(reward_roll_pitch_sigma)))
         reward_height     = reward_height_scale*np.exp(-residual_height/(2*np.square(reward_height_sigma)))
         reward_survival   = reward_survival_scale       # flat alive bonus. Reward already accumulates over step alive
-        #reward_survival   = reward_survival_scale*(self.mujoco_data.time/self.truncate_max_time)
+        #reward_survival   = reward_survival_scale*(1.1 - self.mujoco_data.time/self.truncate_max_time)
         reward_dict["reward_roll_pitch"] = reward_roll_pitch
         reward_dict["reward_height"]     = reward_height
         reward_dict["reward_survival"]   = reward_survival
