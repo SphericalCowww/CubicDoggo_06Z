@@ -26,7 +26,7 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand1_",
+            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand3_",
             #"policy_model_name":    "cubic_doggo_stand_261017_stand3_",
             "rand_seed":            1,
             "learning_rate":        1.0E-5,
@@ -73,7 +73,7 @@ TRAIN_CONFIG = {
             "reward_roll_pitch_scale":                  1.0,
             "reward_roll_pitch_sigma":                  np.pi/90,                  # ~rad
             "reward_height_scale":                      1.0,
-            "reward_height_sigma":                      0.01,                       # m
+            "reward_height_sigma":                      0.03,                       # m
             "reward_survival_scale":                    0.2,
             "penalty_joint_vel_scale":                  1.0E-3,
             "penalty_joint_acc_scale":                  1.0E-5,
@@ -504,10 +504,9 @@ class CubicDoggoEnv(gym.Env):
     def set_push_force_schedule(self, new_scale: float):
         self.push_force_schedule = new_scale
 class CurriculumSchedulingCallback(BaseCallback):
-    def __init__(self, total_timesteps, scale_thres=1.0E-6, verbose=0):
+    def __init__(self, total_timesteps, verbose=0):
         super().__init__(verbose)
         self.total_timesteps = total_timesteps
-        self.scale_thres     = scale_thres
     def _on_step(self) -> bool:
         progress_ratio = min(1.0, self.num_timesteps/self.total_timesteps)
         ############################################################################## curriculum scheduling
@@ -526,9 +525,10 @@ class CurriculumSchedulingCallback(BaseCallback):
             self.training_env.env_method("set_rew_pen_schedule", rew_pen_scale)
         if TRAIN_CONFIG["toggle_penalty_joint_pos_init_schedul"] == True:
             joint_pos_init_decay_rate = TRAIN_CONFIG["joint_pos_init_decay_rate"]
-            pos_init_scale = np.exp(-joint_pos_init_decay_rate*progress_ratio)
-            pos_init_scale = pos_init_scale if (pos_init_scale > self.scale_thres) else 0.0
-            self.training_env.env_method("set_penalty_joint_pos_init_schedule", pos_init_scale)      
+            zero_one_offset = np.exp(-joint_pos_init_decay_rate*1.0)
+            zero_one_scale  = 1.0/(1.0 - np.exp(-joint_pos_init_decay_rate*1.0))
+            pos_init_scale = zero_one_scale*(np.exp(-joint_pos_init_decay_rate*progress_ratio) - zero_one_offset)
+            self.training_env.env_method("set_penalty_joint_pos_init_schedule", pos_init_scale)
         if TRAIN_CONFIG["toggle_push_force_schedule"] == True:
             push_force_scale = max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
             self.training_env.env_method("set_push_force_schedule", push_force_scale)
