@@ -26,7 +26,7 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand2_",
+            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand3_",
             #"policy_model_name":    "cubic_doggo_stand_261017_stand3_",
 
             "rand_seed":                                1,
@@ -216,15 +216,16 @@ class CubicDoggoEnv(gym.Env):
         self.last_joint_vel = np.zeros(self.joint_number)
         self.last_action    = np.zeros(self.action_space.shape, dtype=np.float32)
         self.initial_ctrl   = copy.deepcopy(self.mujoco_data.ctrl)
+        self.first_step_after_reset = True
         self.term_time = 0
         self.term_keys = ["roll", "pitch", "height_low", "height_high"]
         self.term_data = {term_key:False for term_key in self.term_keys}
         self.reset_counters = np.zeros(1 + len(self.term_keys), dtype=np.int64)
     def _get_obs(self):
-        joint_pos = self.mujoco_data.qpos[-self.joint_number:]
-        joint_vel = self.mujoco_data.qvel[-self.joint_number:]
-        imu_gyro  = self.mujoco_data.sensor('gyro').data
-        quat_data = self.mujoco_data.sensor('quat').data
+        joint_pos = self.mujoco_data.qpos[-self.joint_number:].copy()
+        joint_vel = self.mujoco_data.qvel[-self.joint_number:].copy()
+        imu_gyro  = self.mujoco_data.sensor('gyro').data.copy()
+        quat_data = self.mujoco_data.sensor('quat').data.copy()
         imu_roll_rad, imu_pitch_rad, _ = quat2euler(*quat_data)
         ############################################################################## observable domain randomization
         if self.obs_noise_schedule > 0:
@@ -265,6 +266,7 @@ class CubicDoggoEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         #print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
+        self.first_step_after_reset = True
         self.term_time = self.mujoco_data.time
         self.reset_counters[-1] += 1
         for term_idx, term_key in enumerate(self.term_keys):
@@ -401,12 +403,12 @@ class CubicDoggoEnv(gym.Env):
         residual_vel         = 0.0
         residual_action      = 0.0
         residual_slip        = 0.0
-        if np.sum(self.last_joint_vel) != 0:
-            joint_acc = (data_joint_vel - self.last_joint_vel)/(self.mujoco_model.opt.timestep*self.stepN_per_action)
+        if self.first_step_after_reset == False:
+            joint_acc = (data_joint_vel - self.last_joint_vel) / (self.mujoco_model.opt.timestep * self.stepN_per_action)
             residual_vel = np.square(joint_acc)
-        if np.sum(self.last_action) != 0:
             residual_action = np.square(action - self.last_action)
-        
+        self.first_step_after_reset = False
+
         foot_contacts = np.zeros(len(self.leg_prefixes), dtype=bool)
         for contact_id in range(self.mujoco_data.ncon):
             geom_contact = self.mujoco_data.contact[contact_id]
