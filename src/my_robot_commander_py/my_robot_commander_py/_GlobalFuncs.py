@@ -132,7 +132,7 @@ def renderForceArrow(viewer, mujoco_data, mujoco_body_id, push_force_vec, push_f
 from stable_baselines3.common.logger import CSVOutputFormat
 import csv
 class AppendCSVOutputFormat(CSVOutputFormat):
-    def __init__(self, filename, separator=",", key_excluded=None):
+    def __init__(self, filename, log_interval=1, separator=",", key_excluded=None):
         self.filename = filename
         self.separator = separator
         self.key_excluded = key_excluded or ()
@@ -140,10 +140,15 @@ class AppendCSVOutputFormat(CSVOutputFormat):
         self.log = None
         self.name_to_excluded = {}
         self._header_written = os.path.exists(filename) and os.path.getsize(filename) > 0
+        self.log_interval = log_interval
+        self._write_counter = -1
     def write(self, key_values, key_excluded, step=0):
         self.log = key_values
         self.name_to_excluded = key_excluded
         if self.log is None or self.name_to_excluded is None:
+            return
+        self._write_counter += 1
+        if self._write_counter%self.log_interval != 0:
             return
         key_values = {k: v for k, v in self.log.items()
                       if self.name_to_excluded.get(k, None) != (None,)}

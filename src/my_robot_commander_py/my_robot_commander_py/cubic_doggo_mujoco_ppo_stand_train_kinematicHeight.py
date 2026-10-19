@@ -26,14 +26,16 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand3_",
+            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand2_",
             #"policy_model_name":    "cubic_doggo_stand_261017_stand3_",
-            "rand_seed":            1,
-            "learning_rate":        1.0E-5,
-            "ppo_stepN":            1_000_000,                                      # minimum is n_envs*n_steps, 16*2048 = 32768
-            "ppo_checkpointN":      80,
-            "curriculum_maxN":      1_000_000 * 40,                                 # when curriculum arrives at final value
 
+            "rand_seed":                                1,
+            "ppo_stepN":                                1_000_000,                  # minimum is n_envs*n_steps, 16*2048 = 32768
+            "ppo_checkpointN":                          60,
+            "curriculum_maxN":                          1_000_000 * 40,             # when curriculum arrives at final value
+            "learning_rate":                            1.0E-5,
+            "entropy_coefficient":                      0.01,                       # determine exploration rate
+            
             "joint_number":                             12,
             "gyro_number":                              3,
             
@@ -43,7 +45,7 @@ TRAIN_CONFIG = {
             "truncate_max_time":                        20.0,                       # s
             "text_update_time":                         1.0,                        # s
 
-            "action_scale":                             0.2,
+            "action_scale":                             0.25,
             "action_range":                             [-1.0, 1.0],
             "action_delta_range":                       [-0.05, 0.05],
             "action_filter_alpha":                      0.2,
@@ -63,7 +65,7 @@ TRAIN_CONFIG = {
             "toggle_penalty_joint_pos_init_schedul":    True,
                 "joint_pos_init_decay_rate":            5.0,
             "toggle_push_force_schedule":               True,
-                "push_force_max":                       5.0,                       # N
+                "push_force_max":                       5.0,                        # N
                 "push_interval":                        2.0,                        # s
                 "push_duration":                        1.0,                        # s
 
@@ -71,7 +73,7 @@ TRAIN_CONFIG = {
             "target_pitch":                             0.0,                        # rad
             "target_height":                            0.14984,                    # m, 0.15689 for previleged
             "reward_roll_pitch_scale":                  1.0,
-            "reward_roll_pitch_sigma":                  np.pi/90,                  # ~rad
+            "reward_roll_pitch_sigma":                  np.pi/45,                   # ~rad
             "reward_height_scale":                      1.0,
             "reward_height_sigma":                      0.03,                       # m
             "reward_survival_scale":                    0.2,
@@ -79,10 +81,10 @@ TRAIN_CONFIG = {
             "penalty_joint_acc_scale":                  1.0E-5,
             "penalty_ang_vel_scale":                    0.5,
             "penalty_yaw_rate_scale":                   1.0,
-            "penalty_lin_vel_scale":                    10.0,           
+            "penalty_lin_vel_scale":                    1.0,           
             "penalty_joint_torque_scale":               1.0E-2,
             "penalty_joint_power_scale":                2.0E-2,
-            "penalty_leg_torque_scale":                 0.5,
+            "penalty_leg_torque_scale":                 0.1,
             "penalty_slip_scale":                       50.0,
             "penalty_joint_pos_init_scale":             0.1,
             "penalty_action_scale":                     0.005,
@@ -577,11 +579,13 @@ def main():
                          net_arch=dict(pi=[256, 256, 128],                  # Policy/Actor network layers
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ##############################################################################
-    rand_seed       = TRAIN_CONFIG["rand_seed"]
-    learning_rate   = TRAIN_CONFIG["learning_rate"]
-    ppo_stepN       = TRAIN_CONFIG["ppo_stepN"]
-    ppo_checkpointN = TRAIN_CONFIG["ppo_checkpointN"]
-    curriculum_maxN = TRAIN_CONFIG["curriculum_maxN"]
+    rand_seed           = TRAIN_CONFIG["rand_seed"]
+    ppo_stepN           = TRAIN_CONFIG["ppo_stepN"]
+    ppo_checkpointN     = TRAIN_CONFIG["ppo_checkpointN"]
+    curriculum_maxN     = TRAIN_CONFIG["curriculum_maxN"]
+    
+    learning_rate       = TRAIN_CONFIG["learning_rate"]
+    entropy_coefficient = TRAIN_CONFIG["entropy_coefficient"]
     if curriculum_maxN is None:
          curriculum_maxN = ppo_stepN*ppo_checkpointN
     if render_mode == "human":
@@ -603,6 +607,7 @@ def main():
                         seed=rand_seed,
                         policy_kwargs=policy_kwargs,
                         learning_rate=learning_rate,
+                        ent_coef=entropy_coefficient,
                         target_kl=0.03,
                         vf_coef=1.0,
                         max_grad_norm=0.5,
@@ -631,9 +636,8 @@ def main():
         ppo_model_save_name = policy_model_path + policy_model_name + str(ppo_checkpoint_idx)
         if TRAIN_CONFIG["render_mode"] != "human":
             log_writers = [HumanOutputFormat(sys.stdout),
-                           TensorBoardOutputFormat(policy_model_path + policy_model_name),
-                           #CSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
-                           AppendCSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
+                           TensorBoardOutputFormat(policy_model_path+policy_model_name),
+                           AppendCSVOutputFormat(policy_model_path+policy_model_name+"log.csv", log_interval=20)]
             ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=curriculum_maxN)
         ppo_model.learn(total_timesteps=ppo_stepN,
