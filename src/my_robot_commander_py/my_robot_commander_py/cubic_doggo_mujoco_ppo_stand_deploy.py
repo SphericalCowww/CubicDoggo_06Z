@@ -21,21 +21,20 @@ def main():
         joint_names.append('servo2_servo2_padding_'+leg_prefix)
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
 
+    #model_name = 'policy_stand0'
+    model_name = 'policy_stand1_force'
     reinforcement_path = get_package_share_directory('my_robot_commander_py')
-#    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand0_vecNorm.pkl')
-#    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand0_model.onnx')
-    norm_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_vecNorm.pkl')
-    onnx_path = os.path.join(reinforcement_path, 'deploy_model', 'policy_stand1_force_model.onnx')
+    norm_path = os.path.join(reinforcement_path, 'deploy_model', model_name+'_vecNorm.pkl')
+    onnx_path = os.path.join(reinforcement_path, 'deploy_model', model_name+'_model.onnx')
 #    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261016_6_40_vec_norm.pkl"
 #    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261016_6_40.onnx"
-
-    exportPKLvecNorm_JSON(norm_path, norm_path.replace('install/my_robot_commander_py/share/', 'src/').replace('.pkl', '.json'))
 
     pkg_share_path = get_package_share_directory('my_robot_description')
     xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
     mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml')
 #    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand_slope.xml')
     usdf_file      =                                      'cubic_doggo.mujoco.urdf'
+
     
     ################
     print("cubic_doggo_mujoco_ppo_stand_deploy(): loading model ONNX file:", onnx_path)
@@ -57,6 +56,7 @@ def main():
     action_filter_alpha = env_config["action_filter_alpha"]
     stepN_per_action = env_config["stepN_per_action"]
 
+    exportPKLvecNorm_JSON(norm_path, norm_path.replace('install/my_robot_commander_py/share/', 'src/').replace('.pkl', '.json'))
     with open(norm_path, 'rb') as file_obj:
         vec_norm = pickle.load(file_obj) 
     obs_mean = vec_norm.obs_rms.mean
@@ -179,7 +179,7 @@ def main():
                 mujoco_data.ctrl[:] = target_ctrl
                 last_action = action.copy()
             ###########################################
-            force_x, force_y = force_ctrl.get_force()
+            force_x, force_y, force_mag, force_ang = force_ctrl.get_force()
             push_force_vec[:] = 0.0
             push_force_vec[0] = force_x
             push_force_vec[1] = force_y
@@ -188,14 +188,18 @@ def main():
             ###########################################
             for _ in range(stepN_per_action):
                 mujoco.mj_step(mujoco_model, mujoco_data)
-           
+          
             if (mujoco_data.time - last_text_update) > text_update_time:
-                telemetry_str  = f"Roll:{roll_deg:4.1f}deg | Pitch:{pitch_deg:4.1f}deg | Yaw:{yaw_deg:4.1f}deg\n"
-                telemetry_str += f"Privileged Height:{privileged_height:9.5f}m | Kinematic Height:{kinematic_height:9.5f}m"
+                telemetry_str  = f"Roll:{roll_deg:5.1f}deg | Pitch:{pitch_deg:5.1f}deg | Yaw:{yaw_deg:5.1f}deg\n"
+                telemetry_str += f"Privileged Height:{privileged_height:9.5f}m | Kinematic Height:{kinematic_height:9.5f}m\n"
+                telemetry_str += f"Model: {model_name}\n"
+                telemetry_str += f"Force Magnitude: {force_mag:.1f}N | Force Angle: {force_ang:3.1f}deg"
                 viewer.set_texts((mujoco.mjtFontScale.mjFONTSCALE_100, mujoco.mjtGridPos.mjGRID_TOPRIGHT, 
                                   "TELEMETRY", telemetry_str))
                 last_text_update = copy.deepcopy(mujoco_data.time)
                 print(telemetry_str.replace('\n', ' | '), end='\r')
+            elif (last_text_update - mujoco_data.time) > text_update_time:
+                last_text_update = copy.deepcopy(mujoco_data.time)
 
             viewer.sync()
             time_until_next_step = delta_t*stepN_per_action - (time.time() - step_start) 
@@ -205,14 +209,15 @@ def main():
 ##################################################################################################################################
 class ArrowKeyForceController:
     def __init__(self, force_max=5.0):
-        self.mag_scale         = 0.5
-        self.force_angle_res   = 3.0            # deg
-        self.force_angle_swipe = 30             # Hz
+        self.mag_scale       = 0.5
+        self.force_ang_res   = 3.0              # deg
+        self.force_ang_swipe = 30               # Hz
         self.force_max       = force_max        # N
-        self.force_x         = 0.0              # N
-        self.force_y         = 0.0              # N
-        self.force_angle_val = 0.0              # deg
-        self.last_angle_tick = 0.0
+        self.force_x       = 0.0                # N
+        self.force_y       = 0.0                # N
+        self.force_mag_val = 0.0                # N
+        self.force_ang_val = 0.0                # deg
+        self.last_ang_tick = 0.0
         self._running = True
         self._lock = threading.Lock()
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -225,7 +230,7 @@ class ArrowKeyForceController:
         pygame_font   = pygame.font.Font(None, 24)
         pygame_clock  = pygame.time.Clock()
 
-        self.last_angle_tick = time.monotonic()
+        self.last_ang_tick = time.monotonic()
         while self._running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -236,22 +241,22 @@ class ArrowKeyForceController:
                     elif event.key == pygame.K_s:
                         self.mag_scale = max(0.0, self.mag_scale - 0.1)
                     elif event.key == pygame.K_LEFT:
-                        self.force_angle_val = (self.force_angle_val - self.force_angle_res)%360.0
-                        self.last_angle_tick = time.monotonic()
+                        self.force_ang_val = (self.force_ang_val - self.force_ang_res)%360.0
+                        self.last_ang_tick = time.monotonic()
                     elif event.key == pygame.K_RIGHT:
-                        self.force_angle_val = (self.force_angle_val + self.force_angle_res)%360.0
-                        self.last_angle_tick = time.monotonic()
+                        self.force_ang_val = (self.force_ang_val + self.force_ang_res)%360.0
+                        self.last_ang_tick = time.monotonic()
             pygame_now  = time.monotonic()
             pygame_keys = pygame.key.get_pressed()
             left_held  = pygame_keys[pygame.K_LEFT]
             right_held = pygame_keys[pygame.K_RIGHT]
-            hold_period = 1.0/self.force_angle_swipe
-            if (left_held or right_held) and (pygame_now - self.last_angle_tick) >= hold_period:
+            hold_period = 1.0/self.force_ang_swipe
+            if (left_held or right_held) and (pygame_now - self.last_ang_tick) >= hold_period:
                 if left_held:
-                    self.force_angle_val = (self.force_angle_val - self.force_angle_res)%360.0
+                    self.force_ang_val = (self.force_ang_val - self.force_ang_res)%360.0
                 if right_held:
-                    self.force_angle_val = (self.force_angle_val + self.force_angle_res)%360.0
-                self.last_angle_tick = pygame_now
+                    self.force_ang_val = (self.force_ang_val + self.force_ang_res)%360.0
+                self.last_ang_tick = pygame_now
             up_held   = pygame_keys[pygame.K_UP]
             down_held = pygame_keys[pygame.K_DOWN]
             force_sign = 0
@@ -261,32 +266,29 @@ class ArrowKeyForceController:
                 force_sign = -1
             
             force_mag   = force_sign*self.force_max*self.mag_scale
-            force_theta = math.radians(self.force_angle_val)
+            force_theta = math.radians(self.force_ang_val)
             force_x     = -force_mag*math.cos(force_theta)
             force_y     = -force_mag*math.sin(force_theta)
             with self._lock:
                 self.force_x, self.force_y = force_x, force_y
+            self.force_mag_val = force_mag 
             
             pygame_display1 = pygame_font.render("w: increases force magnitude",           True, (255, 255, 255))
             pygame_display2 = pygame_font.render("s: decreases force magnitude",           True, (255, 255, 255))
             pygame_display3 = pygame_font.render("left/right: change force direction",     True, (255, 255, 255))
             pygame_display4 = pygame_font.render("up/down: applying force",                True, (255, 255, 255))
-            pygame_display5 = pygame_font.render(f"force: {force_mag:.1f} N",               True, (255, 255, 255))
-            pygame_display6 = pygame_font.render(f"angle: {self.force_angle_val:.1f} deg", True, (255, 255, 255))
             pygame_screen.fill((0, 0, 0))
             pygame_screen.blit(pygame_display1, (5, 5))
             pygame_screen.blit(pygame_display2, (5, 25))
             pygame_screen.blit(pygame_display3, (5, 45))
             pygame_screen.blit(pygame_display4, (5, 65))
-            pygame_screen.blit(pygame_display5, (5, 105))
-            pygame_screen.blit(pygame_display6, (5, 125))
             
             pygame.display.flip()
             pygame_clock.tick(60)
         pygame.quit()
     def get_force(self):
         with self._lock:
-            return self.force_x, self.force_y
+            return self.force_x, self.force_y, self.force_mag_val, self.force_ang_val
     def stop(self):
         self._running = False
 ##################################################################################################################################

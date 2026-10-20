@@ -26,12 +26,12 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand3_",
-            #"policy_model_name":    "cubic_doggo_stand_261017_stand3_",
+            #"policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand3_",
+            "policy_model_name":    "cubic_doggo_stand_261019_stand3_",
 
             "rand_seed":                                1,
             "ppo_stepN":                                1_000_000,                  # minimum is n_envs*n_steps, 16*2048 = 32768
-            "ppo_checkpointN":                          60,
+            "ppo_checkpointN":                          100,
             "curriculum_maxN":                          1_000_000 * 40,             # when curriculum arrives at final value
             "learning_rate":                            1.0E-5,
             "entropy_coefficient":                      0.01,                       # determine exploration rate
