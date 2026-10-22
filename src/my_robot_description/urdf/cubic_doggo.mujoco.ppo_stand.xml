@@ -15,9 +15,9 @@
                   rgba="0.8 0.1 0.1 1"/>
         </default>
     </default>
-    <statistic center="-0.2 0 0.3"/>
+    <!--statistic center="-0.2 0 0.3"/-->
     <visual>
-        <global fovy="5" azimuth="95" elevation="-6"/>
+        <!--global fovy="5" azimuth="95" elevation="-6"/-->
         <headlight ambient="0.4 0.4 0.4" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1"/>
     </visual>
     <asset>

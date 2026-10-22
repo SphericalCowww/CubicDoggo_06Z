@@ -26,8 +26,8 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            #"policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand3_",
-            "policy_model_name":    "cubic_doggo_stand_261019_stand3_",
+            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand1_",
+            #"policy_model_name":    "cubic_doggo_stand_261019_stand3_",
 
             "rand_seed":                                1,
             "ppo_stepN":                                1_000_000,                  # minimum is n_envs*n_steps, 16*2048 = 32768
@@ -71,7 +71,8 @@ TRAIN_CONFIG = {
 
             "target_roll":                              0.0,                        # rad
             "target_pitch":                             0.0,                        # rad
-            "target_height":                            0.14984,                    # m, 0.15689 for previleged
+            #"target_height":                            0.14984, "height_def": "kinematic", # m
+            "target_height":                            0.15689, "height_def": "privileged", # m
             "reward_roll_pitch_scale":                  1.0,
             "reward_roll_pitch_sigma":                  np.pi/45,                   # ~rad
             "reward_height_scale":                      1.0,
@@ -102,9 +103,10 @@ class CubicDoggoEnv(gym.Env):
         self.render_mode = render_mode
         self.viewer      = None
 
+        self.height_def   = TRAIN_CONFIG["height_def"]
         self.joint_number = TRAIN_CONFIG["joint_number"]
         self.gyro_number  = TRAIN_CONFIG["gyro_number"]
-        self.obs_dim      = self.joint_number + self.joint_number + self.gyro_number + 2 + 1
+        self.obs_dim      = self.joint_number + self.joint_number + self.gyro_number + 2 + int(self.height_def == "kinematic")
 
         self.time_per_step     = TRAIN_CONFIG["time_per_step"]
         self.stepN_per_action  = TRAIN_CONFIG["stepN_per_action"]
@@ -221,6 +223,9 @@ class CubicDoggoEnv(gym.Env):
         self.term_keys = ["roll", "pitch", "height_low", "height_high"]
         self.term_data = {term_key:False for term_key in self.term_keys}
         self.reset_counters = np.zeros(1 + len(self.term_keys), dtype=np.int64)
+
+        self.privileged_height = None
+        self.kinematic_height  = None
     def _get_obs(self):
         joint_pos = self.mujoco_data.qpos[-self.joint_number:].copy()
         joint_vel = self.mujoco_data.qvel[-self.joint_number:].copy()
@@ -252,16 +257,20 @@ class CubicDoggoEnv(gym.Env):
             self.feet_pos.append(pinocchio_base_frame.actInv(self.pinocchio_data.oMf[leg_id]).translation)
             self.feet_vel.append(pinocchio.getFrameVelocity(self.pinocchio_model, self.pinocchio_data, 
                                                             leg_id, pinocchio.ReferenceFrame.WORLD).linear)
-        kinematic_height = np.average([foot_pos[2] for foot_pos in self.feet_pos])
+        self.kinematic_height = np.average([foot_pos[2] for foot_pos in self.feet_pos])
         ###
         mujoco_base_id   = self.mujoco_model.body('robot_root').id
         mujoco_base_curr = self.mujoco_data.xpos[mujoco_base_id]
         rayCast_distance = mujoco.mj_ray(m=self.mujoco_model, d=self.mujoco_data, pnt=mujoco_base_curr, vec=[0.0, 0.0, -1.0],
                                          geomgroup=None, flg_static=1, bodyexclude=mujoco_base_id, geomid=self.ray_geom_id)
-        privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
+        self.privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
 
-        observations = np.concatenate([joint_pos, joint_vel, imu_gyro, 
-                                       [imu_roll_rad, imu_pitch_rad, kinematic_height]]).astype(np.float32)
+        observations = None
+        if self.height_def == "kinematic":
+            observations = np.concatenate([joint_pos, joint_vel, imu_gyro,
+                                          [imu_roll_rad, imu_pitch_rad, self.kinematic_height]]).astype(np.float32)
+        elif self.height_def == "privileged": 
+            observations = np.concatenate([joint_pos, joint_vel, imu_gyro, [imu_roll_rad, imu_pitch_rad]]).astype(np.float32)
         return observations
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -336,11 +345,16 @@ class CubicDoggoEnv(gym.Env):
         ###
         obs_dict = {}
         observations = self._get_obs()
-        data_joint_pos = observations[0:self.joint_number]
-        data_joint_vel = observations[self.joint_number:(2*self.joint_number)]
-        data_gyro      = observations[(2*self.joint_number):(2*self.joint_number+self.gyro_number)]
-        data_roll, data_pitch, data_height = observations[(2*self.joint_number+self.gyro_number):] 
-
+        post_gyro_index = 2*self.joint_number + self.gyro_number
+        data_joint_pos        = observations[0:self.joint_number]
+        data_joint_vel        = observations[self.joint_number:(2*self.joint_number)]
+        data_gyro             = observations[(2*self.joint_number):post_gyro_index]
+        data_roll, data_pitch = observations[post_gyro_index:(post_gyro_index+2)] 
+        if self.height_def == "kinematic":
+            data_height = observations[-1]
+        elif self.height_def == "privileged":
+            data_height = self.privileged_height
+    
         sim_lin_vel      = self.mujoco_data.sensor('linvel').data[:2]       # XY velocity
         sim_joint_torque = self.mujoco_data.actuator_force[:]
         sim_leg_torque   = np.sum(np.abs(sim_joint_torque.reshape(4, 3)), axis=1)
@@ -354,6 +368,8 @@ class CubicDoggoEnv(gym.Env):
         obs_dict["data_roll"]   = data_roll
         obs_dict["data_pitch"]  = data_pitch
         obs_dict["data_height"] = data_height
+        obs_dict["kinematic_height"]  = self.kinematic_height
+        obs_dict["privileged_height"] = self.privileged_height 
         for obs_idx in range(len(sim_lin_vel)):
             obs_dict["x_sim_lin_vel"+str(obs_idx)] = sim_lin_vel[obs_idx]
         for obs_idx in range(len(sim_joint_torque)):
@@ -636,11 +652,10 @@ def main():
     for ppo_idx in range(ppo_checkpointN-policy_model_idx+int(render_mode == "human")):
         ppo_checkpoint_idx = ppo_idx + policy_model_idx + 1 
         ppo_model_save_name = policy_model_path + policy_model_name + str(ppo_checkpoint_idx)
+        log_writers = [HumanOutputFormat(sys.stdout), TensorBoardOutputFormat(policy_model_path+policy_model_name)]
         if TRAIN_CONFIG["render_mode"] != "human":
-            log_writers = [HumanOutputFormat(sys.stdout),
-                           TensorBoardOutputFormat(policy_model_path+policy_model_name),
-                           AppendCSVOutputFormat(policy_model_path+policy_model_name+"log.csv", log_interval=20)]
-            ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
+            log_writers.append(AppendCSVOutputFormat(policy_model_path+policy_model_name+"log.csv", log_interval=20))
+        ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
         curriculum_callback = CurriculumSchedulingCallback(total_timesteps=curriculum_maxN)
         ppo_model.learn(total_timesteps=ppo_stepN,
                         callback=curriculum_callback,

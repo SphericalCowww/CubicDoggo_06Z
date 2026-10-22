@@ -49,6 +49,8 @@ def main():
         except (ValueError, SyntaxError):
             env_config[key] = val
         print('  '+key+':', env_config[key])
+    
+    height_def = env_config["height_def"] if "height_def" in env_config else "kinematic"
     joint_number = env_config["joint_number"]
     action_scale = env_config["action_scale"]
     action_range = env_config["action_range"]
@@ -83,7 +85,6 @@ def main():
         mjcf_mujoco = file_obj.read()
     mjcf_mujoco = mjcf_mujoco.replace('$MY_ROBOT_DESCRIPTION_PATH', pkg_share_path)
     mjcf_mujoco = mjcf_mujoco.replace('</asset>', robot_assets + '\n    </asset>')
-    #mjcf_mujoco = mjcf_mujoco.replace('<include file=\"'+usdf_file+'\"/>', robot_bodies)
     mjcf_mujoco = re.sub(r'<include\s+file=["\']' + re.escape(usdf_file) + r'["\']\s*/>', robot_bodies, mjcf_mujoco)
     mjcf_mujoco = mjcf_mujoco.replace('name="calfSphere_FL"', 'name="calfSphere_FL" class="foot_friction"')
     mjcf_mujoco = mjcf_mujoco.replace('name="calfSphere_FR"', 'name="calfSphere_FR" class="foot_friction"')
@@ -165,7 +166,12 @@ def main():
                                              geomgroup=None, flg_static=1, bodyexclude=mujoco_base_id, geomid=ray_geomid)
             privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
             ###########################################
-            raw_obs = np.concatenate([joint_pos, joint_vel, imu_gyro, [roll_rad, pitch_rad, kinematic_height]]).astype(np.float32)
+            raw_obs = None
+            if height_def == "kinematic":
+                raw_obs = np.concatenate([joint_pos, joint_vel, imu_gyro, 
+                                          [roll_rad, pitch_rad, kinematic_height]]).astype(np.float32)
+            elif height_def == "privileged":
+                raw_obs = np.concatenate([joint_pos, joint_vel, imu_gyro, [roll_rad, pitch_rad]]).astype(np.float32)
             if mujoco_data.time > action_delay_time:
                 norm_obs = normalize_obs(raw_obs)
                 onnx_outputs = ort_session.run([output_name], {input_name: norm_obs.reshape(1, -1)})
