@@ -42,6 +42,8 @@ setup(
             'cubic_doggo_mujoco_pin_stand        = my_robot_commander_py.cubic_doggo_mujoco_pin_stand:main',
             'cubic_doggo_mujoco_ppo_stand_train  = my_robot_commander_py.cubic_doggo_mujoco_ppo_stand_train:main',
             'cubic_doggo_mujoco_ppo_stand_deploy = my_robot_commander_py.cubic_doggo_mujoco_ppo_stand_deploy:main',
+            'cubic_doggo_mujoco_ppo_slope_train  = my_robot_commander_py.cubic_doggo_mujoco_ppo_slope_train:main',
+            'cubic_doggo_mujoco_ppo_slope_deploy = my_robot_commander_py.cubic_doggo_mujoco_ppo_slope_deploy:main',
         ],
     },
 )

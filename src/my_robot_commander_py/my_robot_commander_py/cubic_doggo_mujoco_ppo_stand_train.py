@@ -26,8 +26,8 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand1_",
-            #"policy_model_name":    "cubic_doggo_stand_261019_stand3_",
+            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_stand1_",
+            #"policy_model_name":    "cubic_doggo_261022_stand1_",
 
             "rand_seed":                                1,
             "ppo_stepN":                                1_000_000,                  # minimum is n_envs*n_steps, 16*2048 = 32768
@@ -420,7 +420,7 @@ class CubicDoggoEnv(gym.Env):
         residual_action      = 0.0
         residual_slip        = 0.0
         if self.first_step_after_reset == False:
-            joint_acc = (data_joint_vel - self.last_joint_vel) / (self.mujoco_model.opt.timestep * self.stepN_per_action)
+            joint_acc = (data_joint_vel - self.last_joint_vel)/(self.mujoco_model.opt.timestep*self.stepN_per_action)
             residual_vel = np.square(joint_acc)
             residual_action = np.square(action - self.last_action)
         self.first_step_after_reset = False

@@ -22,31 +22,33 @@ PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
 ##################################################################################################################################
 TRAIN_CONFIG = {
             "xacro_path": os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.urdf.xacro'),
-            "mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_stand_slope.xml'),
+            "mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_slope.xml'),
 
             "render_mode":          None,
-            "render_mode":          "human",                                       # for visualization
-            #"policy_model_name":    "cubic_doggo_stand_"+str(datetime.date.today().strftime("%y%m%d"))+"_6_",
-            "policy_model_name":    "cubic_doggo_stand_261016_6_",
-            "rand_seed":            1,
-            "ppo_checkpointN":      40,
-            "ppo_stepN":            1_000_000,                                      # minimum is n_envs*n_steps, 16*2048 = 32768
+            #"render_mode":          "human",                                        # for visualization
+            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope1_",
+            #"policy_model_name":    "cubic_doggo_261022_slope1_",
 
-            "learning_rate":        1.0E-5,
-
+            "rand_seed":                                1,
+            "ppo_stepN":                                1_000_000,                  # minimum is n_envs*n_steps, 16*2048 = 32768
+            "ppo_checkpointN":                          40,
+            "curriculum_maxN":                          1_000_000 * 40,             # when curriculum arrives at final value
+            "learning_rate":                            1.0E-5,
+            "entropy_coefficient":                      0.01,                       # determine exploration rate
+            
             "joint_number":                             12,
             "gyro_number":                              3,
             
             "time_per_step":                            0.003,                      # s, default = 0.002
             "stepN_per_action":                         4,                          # steps
-            "skip_first_stepN":                         20,                          # steps 
+            "skip_first_stepN":                         40,                         # steps 
             "truncate_max_time":                        20.0,                       # s
             "text_update_time":                         1.0,                        # s
 
-            "action_scale": 0.2,
-            "action_range": [-1.0, 1.0],
-            "action_delta_range": [-0.05, 0.05],
-            "action_filter_alpha": 0.2,
+            "action_scale":                             0.25,
+            "action_range":                             [-1.0, 1.0],
+            "action_delta_range":                       [-0.05, 0.05],
+            "action_filter_alpha":                      0.2,
 
             "toggle_obs_noise_schedule":                True,
                 "dom_rand_joint_pos_scale":             np.pi/180,
@@ -63,26 +65,29 @@ TRAIN_CONFIG = {
             "toggle_penalty_joint_pos_init_schedul":    True,
                 "joint_pos_init_decay_rate":            10.0,
             "toggle_push_force_schedule":               False,
-                "push_force_max":                       10.0,                       # N
-                "push_interval":                        5,                          # s
-                "push_duration":                        0.1,                        # s
+                "push_force_max":                       5.0,                        # N
+                "push_interval":                        2.0,                        # s
+                "push_duration":                        1.0,                        # s
 
             "target_roll":                              0.0,                        # rad
             "target_pitch":                             0.0,                        # rad
-            "target_height":                            0.14984,                    # m, 0.15689 for previleged
+            #"target_height":                            0.14984, "height_def": "kinematic", # m
+            "target_height":                            0.15689, "height_def": "privileged", # m
             "reward_roll_pitch_scale":                  1.0,
-            "reward_roll_pitch_sigma":                  np.pi/45,                  # ~rad
+            "reward_roll_pitch_sigma":                  np.pi/45,                   # ~rad
             "reward_height_scale":                      1.0,
-            "reward_height_sigma":                      0.02,                       # m
-            "penalty_joint_vel_scale":                  1.0E-3,
+            "reward_height_sigma":                      0.03,                       # m
+            "reward_survival_scale":                    0.2,
+            "reward_feet_contact_scale":                0.1,
+            "penalty_joint_vel_scale":                  1.0E-2,
             "penalty_joint_acc_scale":                  1.0E-5,
-            "penalty_ang_vel_scale":                    0.5,
+            "penalty_ang_vel_scale":                    1.0,
             "penalty_yaw_rate_scale":                   1.0,
-            "penalty_lin_vel_scale":                    10.0,           
+            "penalty_lin_vel_scale":                    1.0,           
             "penalty_joint_torque_scale":               1.0E-2,
             "penalty_joint_power_scale":                2.0E-2,
             "penalty_leg_torque_scale":                 0.5,
-            "penalty_slip_scale":                       50.0,
+            "penalty_slip_scale":                       100.0,
             "penalty_joint_pos_init_scale":             0.1,
             "penalty_action_scale":                     0.005,
             "penalty_action_rate_scale":                1.0,
@@ -99,9 +104,10 @@ class CubicDoggoEnv(gym.Env):
         self.render_mode = render_mode
         self.viewer      = None
 
+        self.height_def   = TRAIN_CONFIG["height_def"]
         self.joint_number = TRAIN_CONFIG["joint_number"]
         self.gyro_number  = TRAIN_CONFIG["gyro_number"]
-        self.obs_dim      = self.joint_number + self.joint_number + self.gyro_number + 2 + 1
+        self.obs_dim      = self.joint_number + self.joint_number + self.gyro_number + 2 + int(self.height_def == "kinematic")
 
         self.time_per_step     = TRAIN_CONFIG["time_per_step"]
         self.stepN_per_action  = TRAIN_CONFIG["stepN_per_action"]
@@ -161,6 +167,7 @@ class CubicDoggoEnv(gym.Env):
             self.mujoco_foot_ids.append(first_geom + (num_geoms - 1))           # getting calfSphere geom_id by order matching
 
         self.mujoco_floor_id = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, 'floor')
+        self.mujoco_slope_id = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_GEOM, 'slope')
         self.ray_geom_id     = np.zeros(1, dtype=np.int32)
         self.init_cond_id    = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_KEY, "initial_condition")
         base_q = self.mujoco_model.key_qpos[self.init_cond_id, 3:7]
@@ -213,15 +220,19 @@ class CubicDoggoEnv(gym.Env):
         self.last_joint_vel = np.zeros(self.joint_number)
         self.last_action    = np.zeros(self.action_space.shape, dtype=np.float32)
         self.initial_ctrl   = copy.deepcopy(self.mujoco_data.ctrl)
+        self.first_step_after_reset = True
         self.term_time = 0
         self.term_keys = ["roll", "pitch", "height_low", "height_high"]
         self.term_data = {term_key:False for term_key in self.term_keys}
         self.reset_counters = np.zeros(1 + len(self.term_keys), dtype=np.int64)
+
+        self.privileged_height = None
+        self.kinematic_height  = None
     def _get_obs(self):
-        joint_pos = self.mujoco_data.qpos[-self.joint_number:]
-        joint_vel = self.mujoco_data.qvel[-self.joint_number:]
-        imu_gyro  = self.mujoco_data.sensor('gyro').data
-        quat_data = self.mujoco_data.sensor('quat').data
+        joint_pos = self.mujoco_data.qpos[-self.joint_number:].copy()
+        joint_vel = self.mujoco_data.qvel[-self.joint_number:].copy()
+        imu_gyro  = self.mujoco_data.sensor('gyro').data.copy()
+        quat_data = self.mujoco_data.sensor('quat').data.copy()
         imu_roll_rad, imu_pitch_rad, _ = quat2euler(*quat_data)
         ############################################################################## observable domain randomization
         if self.obs_noise_schedule > 0:
@@ -248,20 +259,25 @@ class CubicDoggoEnv(gym.Env):
             self.feet_pos.append(pinocchio_base_frame.actInv(self.pinocchio_data.oMf[leg_id]).translation)
             self.feet_vel.append(pinocchio.getFrameVelocity(self.pinocchio_model, self.pinocchio_data, 
                                                             leg_id, pinocchio.ReferenceFrame.WORLD).linear)
-        kinematic_height = np.average([foot_pos[2] for foot_pos in self.feet_pos])
+        self.kinematic_height = np.average([foot_pos[2] for foot_pos in self.feet_pos])
         ###
         mujoco_base_id   = self.mujoco_model.body('robot_root').id
         mujoco_base_curr = self.mujoco_data.xpos[mujoco_base_id]
         rayCast_distance = mujoco.mj_ray(m=self.mujoco_model, d=self.mujoco_data, pnt=mujoco_base_curr, vec=[0.0, 0.0, -1.0],
                                          geomgroup=None, flg_static=1, bodyexclude=mujoco_base_id, geomid=self.ray_geom_id)
-        privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
+        self.privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
 
-        observations = np.concatenate([joint_pos, joint_vel, imu_gyro, 
-                                       [imu_roll_rad, imu_pitch_rad, kinematic_height]]).astype(np.float32)
+        observations = None
+        if self.height_def == "kinematic":
+            observations = np.concatenate([joint_pos, joint_vel, imu_gyro,
+                                          [imu_roll_rad, imu_pitch_rad, self.kinematic_height]]).astype(np.float32)
+        elif self.height_def == "privileged": 
+            observations = np.concatenate([joint_pos, joint_vel, imu_gyro, [imu_roll_rad, imu_pitch_rad]]).astype(np.float32)
         return observations
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         #print('CubicDoggoEnv(): reset(): restarting robot after time:', self.mujoco_data.time)
+        self.first_step_after_reset = True
         self.term_time = self.mujoco_data.time
         self.reset_counters[-1] += 1
         for term_idx, term_key in enumerate(self.term_keys):
@@ -331,11 +347,16 @@ class CubicDoggoEnv(gym.Env):
         ###
         obs_dict = {}
         observations = self._get_obs()
-        data_joint_pos = observations[0:self.joint_number]
-        data_joint_vel = observations[self.joint_number:(2*self.joint_number)]
-        data_gyro      = observations[(2*self.joint_number):(2*self.joint_number+self.gyro_number)]
-        data_roll, data_pitch, data_height = observations[(2*self.joint_number+self.gyro_number):] 
-
+        post_gyro_index = 2*self.joint_number + self.gyro_number
+        data_joint_pos        = observations[0:self.joint_number]
+        data_joint_vel        = observations[self.joint_number:(2*self.joint_number)]
+        data_gyro             = observations[(2*self.joint_number):post_gyro_index]
+        data_roll, data_pitch = observations[post_gyro_index:(post_gyro_index+2)] 
+        if self.height_def == "kinematic":
+            data_height = observations[-1]
+        elif self.height_def == "privileged":
+            data_height = self.privileged_height
+    
         sim_lin_vel      = self.mujoco_data.sensor('linvel').data[:2]       # XY velocity
         sim_joint_torque = self.mujoco_data.actuator_force[:]
         sim_leg_torque   = np.sum(np.abs(sim_joint_torque.reshape(4, 3)), axis=1)
@@ -349,6 +370,8 @@ class CubicDoggoEnv(gym.Env):
         obs_dict["data_roll"]   = data_roll
         obs_dict["data_pitch"]  = data_pitch
         obs_dict["data_height"] = data_height
+        obs_dict["kinematic_height"]  = self.kinematic_height
+        obs_dict["privileged_height"] = self.privileged_height 
         for obs_idx in range(len(sim_lin_vel)):
             obs_dict["x_sim_lin_vel"+str(obs_idx)] = sim_lin_vel[obs_idx]
         for obs_idx in range(len(sim_joint_torque)):
@@ -361,14 +384,16 @@ class CubicDoggoEnv(gym.Env):
         target_roll, target_pitch = TRAIN_CONFIG["target_roll"], TRAIN_CONFIG["target_pitch"]
         target_height             = TRAIN_CONFIG["target_height"]
 
-        reward_roll_pitch_scale = TRAIN_CONFIG["reward_roll_pitch_scale"]
-        reward_roll_pitch_sigma = TRAIN_CONFIG["reward_roll_pitch_sigma"]             /self.rew_pen_schedule
-        reward_height_scale     = TRAIN_CONFIG["reward_height_scale"]
-        reward_height_sigma     = TRAIN_CONFIG["reward_height_sigma"]                 /self.rew_pen_schedule
-        penalty_joint_vel_scale = TRAIN_CONFIG["penalty_joint_vel_scale"]
-        penalty_joint_acc_scale = TRAIN_CONFIG["penalty_joint_acc_scale"]
-        penalty_ang_vel_scale   = TRAIN_CONFIG["penalty_ang_vel_scale"]               *self.rew_pen_schedule
-        penalty_yaw_rate_scale  = TRAIN_CONFIG["penalty_yaw_rate_scale"]              *self.rew_pen_schedule
+        reward_roll_pitch_scale   = TRAIN_CONFIG["reward_roll_pitch_scale"]
+        reward_roll_pitch_sigma   = TRAIN_CONFIG["reward_roll_pitch_sigma"]             /self.rew_pen_schedule
+        reward_height_scale       = TRAIN_CONFIG["reward_height_scale"]
+        reward_height_sigma       = TRAIN_CONFIG["reward_height_sigma"]                 /self.rew_pen_schedule
+        reward_survival_scale     = TRAIN_CONFIG["reward_survival_scale"]
+        reward_feet_contact_scale = TRAIN_CONFIG["reward_feet_contact_scale"]           *self.rew_pen_schedule
+        penalty_joint_vel_scale   = TRAIN_CONFIG["penalty_joint_vel_scale"]
+        penalty_joint_acc_scale   = TRAIN_CONFIG["penalty_joint_acc_scale"]
+        penalty_ang_vel_scale     = TRAIN_CONFIG["penalty_ang_vel_scale"]               *self.rew_pen_schedule
+        penalty_yaw_rate_scale    = TRAIN_CONFIG["penalty_yaw_rate_scale"]              *self.rew_pen_schedule
 
         penalty_lin_vel_scale        = TRAIN_CONFIG["penalty_lin_vel_scale"]          *self.rew_pen_schedule
         penalty_joint_torque_scale   = TRAIN_CONFIG["penalty_joint_torque_scale"]
@@ -397,12 +422,12 @@ class CubicDoggoEnv(gym.Env):
         residual_vel         = 0.0
         residual_action      = 0.0
         residual_slip        = 0.0
-        if np.sum(self.last_joint_vel) != 0:
+        if self.first_step_after_reset == False:
             joint_acc = (data_joint_vel - self.last_joint_vel)/(self.mujoco_model.opt.timestep*self.stepN_per_action)
             residual_vel = np.square(joint_acc)
-        if np.sum(self.last_action) != 0:
             residual_action = np.square(action - self.last_action)
-        
+        self.first_step_after_reset = False
+
         foot_contacts = np.zeros(len(self.leg_prefixes), dtype=bool)
         for contact_id in range(self.mujoco_data.ncon):
             geom_contact = self.mujoco_data.contact[contact_id]
@@ -410,12 +435,19 @@ class CubicDoggoEnv(gym.Env):
                 if (geom_contact.geom1 == self.mujoco_floor_id and geom_contact.geom2 == foot_id) or \
                    (geom_contact.geom2 == self.mujoco_floor_id and geom_contact.geom1 == foot_id): 
                     foot_contacts[foot_idx] = True
+                if (geom_contact.geom1 == self.mujoco_slope_id and geom_contact.geom2 == foot_id) or \
+                   (geom_contact.geom2 == self.mujoco_slope_id and geom_contact.geom1 == foot_id):
+                    foot_contacts[foot_idx] = True 
         for foot_vel, in_contact in zip(self.feet_vel, foot_contacts):
             if in_contact == True:
                 residual_slip += np.sum(np.square(foot_vel[:2]))
         #print("cubic_doggo_mujoco_ppo_stand_train(): contact geom_ids:", 
         #      [[self.mujoco_data.contact[contact_id].geom1, self.mujoco_data.contact[contact_id].geom2] 
         #        for contact_id in range(self.mujoco_data.ncon)])
+        #print("cubic_doggo_mujoco_ppo_stand_train(): contact floor_id/slope_id:", self.mujoco_floor_id, self.mujoco_slope_id)
+        #print("cubic_doggo_mujoco_ppo_stand_train(): contact foot_id/foot_contact:", self.mujoco_foot_ids, foot_contacts)        
+        #print("cubic_doggo_mujoco_ppo_stand_train(): residual_slip:", residual_slip)
+
 
         obs_dict["z_residual_roll"]        = residual_roll
         obs_dict["z_residual_pitch"]       = residual_pitch
@@ -428,10 +460,14 @@ class CubicDoggoEnv(gym.Env):
         infos_dict["obs_dict"] = obs_dict
         ### 
         reward_dict = {}
-        reward_roll_pitch = reward_roll_pitch_scale*np.exp(-residual_orientation/(2*np.square(reward_roll_pitch_sigma)))
-        reward_height     = reward_height_scale*np.exp(-residual_height/(2*np.square(reward_height_sigma)))
-        reward_dict["reward_roll_pitch"] = reward_roll_pitch
-        reward_dict["reward_height"]     = reward_height
+        reward_roll_pitch   = reward_roll_pitch_scale*np.exp(-residual_orientation/(2*np.square(reward_roll_pitch_sigma)))
+        reward_height       = reward_height_scale*np.exp(-residual_height/(2*np.square(reward_height_sigma)))
+        reward_survival     = reward_survival_scale       # flat alive bonus. Reward already accumulates over step alive
+        reward_feet_contact = reward_feet_contact_scale*np.sum(foot_contacts)
+        reward_dict["reward_roll_pitch"]   = reward_roll_pitch
+        reward_dict["reward_height"]       = reward_height
+        reward_dict["reward_survival"]     = reward_survival
+        reward_dict["reward_feet_contact"] = reward_feet_contact
         reward_dict["penalty_joint_vel"]    = -penalty_joint_vel_scale   *np.sum(np.square(data_joint_vel))
         reward_dict["penalty_joint_acc"]    = -penalty_joint_acc_scale   *np.sum(residual_vel)
         reward_dict["penalty_ang_vel"]      = -penalty_ang_vel_scale     *np.sum(np.square(data_gyro))
@@ -451,7 +487,9 @@ class CubicDoggoEnv(gym.Env):
         reward_ratio_dict = {}
         reward_ratio_dict["reward_roll_pitch_ratio"] = reward_dict["reward_roll_pitch"]/reward_roll_pitch_scale
         reward_ratio_dict["reward_height_ratio"]     = reward_dict["reward_height"]    /reward_height_scale
-        reward_ratio_dict["reward_full_ratio"]       = reward/(reward_roll_pitch_scale + reward_height_scale)
+        reward_ratio_dict["reward_survival_ratio"]   = reward_dict["reward_survival"]  /reward_survival_scale
+        reward_ratio_dict["reward_full_ratio"]       = reward/(reward_roll_pitch_scale+reward_height_scale+reward_survival_scale)
+        
         infos_dict["reward_ratio_dict"] = reward_ratio_dict
 
         self.last_joint_vel = data_joint_vel.copy()
@@ -497,12 +535,11 @@ class CubicDoggoEnv(gym.Env):
     def set_push_force_schedule(self, new_scale: float):
         self.push_force_schedule = new_scale
 class CurriculumSchedulingCallback(BaseCallback):
-    def __init__(self, total_timesteps, scale_thres=1.0E-6, verbose=0):
+    def __init__(self, total_timesteps, verbose=0):
         super().__init__(verbose)
         self.total_timesteps = total_timesteps
-        self.scale_thres     = scale_thres
     def _on_step(self) -> bool:
-        progress_ratio = self.num_timesteps/self.total_timesteps
+        progress_ratio = min(1.0, self.num_timesteps/self.total_timesteps)
         ############################################################################## curriculum scheduling
         obs_noise_scale, init_var_scale,  rew_pen_scale, pos_init_scale, push_force_scale = 0.0, 0.0, 0.0, 0.0, 0.0
         if TRAIN_CONFIG["toggle_obs_noise_schedule"] == True:
@@ -519,9 +556,10 @@ class CurriculumSchedulingCallback(BaseCallback):
             self.training_env.env_method("set_rew_pen_schedule", rew_pen_scale)
         if TRAIN_CONFIG["toggle_penalty_joint_pos_init_schedul"] == True:
             joint_pos_init_decay_rate = TRAIN_CONFIG["joint_pos_init_decay_rate"]
-            pos_init_scale = np.exp(-joint_pos_init_decay_rate*progress_ratio)
-            pos_init_scale = pos_init_scale if (pos_init_scale > self.scale_thres) else 0.0
-            self.training_env.env_method("set_penalty_joint_pos_init_schedule", pos_init_scale)      
+            zero_one_offset = np.exp(-joint_pos_init_decay_rate*1.0)
+            zero_one_scale  = 1.0/(1.0 - np.exp(-joint_pos_init_decay_rate*1.0))
+            pos_init_scale = zero_one_scale*(np.exp(-joint_pos_init_decay_rate*progress_ratio) - zero_one_offset)
+            self.training_env.env_method("set_penalty_joint_pos_init_schedule", pos_init_scale)
         if TRAIN_CONFIG["toggle_push_force_schedule"] == True:
             push_force_scale = max(0.0, min(1.0, (progress_ratio - 0.2)/0.5))
             self.training_env.env_method("set_push_force_schedule", push_force_scale)
@@ -570,9 +608,15 @@ def main():
                          net_arch=dict(pi=[256, 256, 128],                  # Policy/Actor network layers
                                        vf=[256, 256, 128]))                 # Value/Critic network layers
     ##############################################################################
-    rand_seed       = TRAIN_CONFIG["rand_seed"]
-    ppo_checkpointN = TRAIN_CONFIG["ppo_checkpointN"]
-    ppo_stepN       = TRAIN_CONFIG["ppo_stepN"]
+    rand_seed           = TRAIN_CONFIG["rand_seed"]
+    ppo_stepN           = TRAIN_CONFIG["ppo_stepN"]
+    ppo_checkpointN     = TRAIN_CONFIG["ppo_checkpointN"]
+    curriculum_maxN     = TRAIN_CONFIG["curriculum_maxN"]
+    
+    learning_rate       = TRAIN_CONFIG["learning_rate"]
+    entropy_coefficient = TRAIN_CONFIG["entropy_coefficient"]
+    if curriculum_maxN is None:
+         curriculum_maxN = ppo_stepN*ppo_checkpointN
     if render_mode == "human":
         ppo_env = make_vec_env(lambda: CubicDoggoEnv(render_mode=render_mode), n_envs=1)
     else:
@@ -591,7 +635,8 @@ def main():
                         verbose=1,
                         seed=rand_seed,
                         policy_kwargs=policy_kwargs,
-                        learning_rate=TRAIN_CONFIG["learning_rate"],
+                        learning_rate=learning_rate,
+                        ent_coef=entropy_coefficient,
                         target_kl=0.03,
                         vf_coef=1.0,
                         max_grad_norm=0.5,
@@ -618,12 +663,11 @@ def main():
     for ppo_idx in range(ppo_checkpointN-policy_model_idx+int(render_mode == "human")):
         ppo_checkpoint_idx = ppo_idx + policy_model_idx + 1 
         ppo_model_save_name = policy_model_path + policy_model_name + str(ppo_checkpoint_idx)
+        log_writers = [HumanOutputFormat(sys.stdout), TensorBoardOutputFormat(policy_model_path+policy_model_name)]
         if TRAIN_CONFIG["render_mode"] != "human":
-            log_writers = [HumanOutputFormat(sys.stdout),
-                           TensorBoardOutputFormat(policy_model_path + policy_model_name),
-                           CSVOutputFormat(policy_model_path + policy_model_name + "log.csv")]
-            ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
-        curriculum_callback = CurriculumSchedulingCallback(total_timesteps=(ppo_stepN*ppo_checkpointN))
+            log_writers.append(AppendCSVOutputFormat(policy_model_path+policy_model_name+"log.csv", log_interval=20))
+        ppo_model.set_logger(Logger(folder=policy_model_path, output_formats=log_writers))
+        curriculum_callback = CurriculumSchedulingCallback(total_timesteps=curriculum_maxN)
         ppo_model.learn(total_timesteps=ppo_stepN,
                         callback=curriculum_callback,
                         tb_log_name=policy_model_name,

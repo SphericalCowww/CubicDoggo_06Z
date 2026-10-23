@@ -21,18 +21,19 @@ def main():
         joint_names.append('servo2_servo2_padding_'+leg_prefix)
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
 
-    #model_name = 'policy_stand0'
-    model_name = 'policy_stand1_force'
+    #model_name = 'policy0_stand'
+    #model_name = 'policy1_force_kinematicHeight'
+    model_name = 'policy1_force_privilegedHeight'
     reinforcement_path = get_package_share_directory('my_robot_commander_py')
     norm_path = os.path.join(reinforcement_path, 'deploy_model', model_name+'_vecNorm.pkl')
     onnx_path = os.path.join(reinforcement_path, 'deploy_model', model_name+'_model.onnx')
-#    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261016_6_40_vec_norm.pkl"
-#    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/cubic_doggo_stand_261016_6_40.onnx"
+    #model_name = 'cubic_doggo_261016_stand1_40'
+    #norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/"+model_name+"_vec_norm.pkl"
+    #onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/"+model_name+".onnx"
 
     pkg_share_path = get_package_share_directory('my_robot_description')
     xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
     mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml')
-#    mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand_slope.xml')
     usdf_file      =                                      'cubic_doggo.mujoco.urdf'
 
     
@@ -279,10 +280,10 @@ class ArrowKeyForceController:
                 self.force_x, self.force_y = force_x, force_y
             self.force_mag_val = force_mag 
             
-            pygame_display1 = pygame_font.render("w: increases force magnitude",           True, (255, 255, 255))
-            pygame_display2 = pygame_font.render("s: decreases force magnitude",           True, (255, 255, 255))
-            pygame_display3 = pygame_font.render("left/right: change force direction",     True, (255, 255, 255))
-            pygame_display4 = pygame_font.render("up/down: applying force",                True, (255, 255, 255))
+            pygame_display1 = pygame_font.render("w: increases force magnitude",       True, (255, 255, 255))
+            pygame_display2 = pygame_font.render("s: decreases force magnitude",       True, (255, 255, 255))
+            pygame_display3 = pygame_font.render("left/right: change force direction", True, (255, 255, 255))
+            pygame_display4 = pygame_font.render("up/down: applying force",            True, (255, 255, 255))
             pygame_screen.fill((0, 0, 0))
             pygame_screen.blit(pygame_display1, (5, 5))
             pygame_screen.blit(pygame_display2, (5, 25))
