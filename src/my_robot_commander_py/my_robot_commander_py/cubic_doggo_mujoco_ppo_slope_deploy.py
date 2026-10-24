@@ -38,11 +38,11 @@ def main():
     ################
     print("cubic_doggo_mujoco_ppo_stand_deploy(): loading model ONNX file:", onnx_path)
     ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
-    input_name  = ort_session.get_inputs()[0].name
-    output_name = ort_session.get_outputs()[0].name
-    meta_map = ort_session.get_modelmeta().custom_metadata_map
+    ort_input_name  = ort_session.get_inputs()[0].name
+    ort_output_name = ort_session.get_outputs()[0].name
+    ort_meta_map = ort_session.get_modelmeta().custom_metadata_map
     env_config = {}
-    for key, val in meta_map.items():
+    for key, val in ort_meta_map.items():
         try:
             env_config[key] = ast.literal_eval(val)
         except (ValueError, SyntaxError):
@@ -173,7 +173,7 @@ def main():
                 raw_obs = np.concatenate([joint_pos, joint_vel, imu_gyro, [roll_rad, pitch_rad]]).astype(np.float32)
             if mujoco_data.time > action_delay_time:
                 norm_obs = normalize_obs(raw_obs)
-                onnx_outputs = ort_session.run([output_name], {input_name: norm_obs.reshape(1, -1)})
+                onnx_outputs = ort_session.run([ort_output_name], {ort_input_name: norm_obs.reshape(1, -1)})
                 action = np.clip(onnx_outputs[0][0], *action_range)
 
                 action_delta = np.clip(action - last_action, *action_delta_range)

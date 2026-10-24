@@ -26,15 +26,15 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope1_",
-            #"policy_model_name":    "cubic_doggo_261022_slope1_",
+            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope2_",
+            #"policy_model_name":    "cubic_doggo_261023_slope1_",
 
             "rand_seed":                                1,
             "ppo_stepN":                                1_000_000,                  # minimum is n_envs*n_steps, 16*2048 = 32768
-            "ppo_checkpointN":                          40,
+            "ppo_checkpointN":                          60,
             "curriculum_maxN":                          1_000_000 * 40,             # when curriculum arrives at final value
             "learning_rate":                            1.0E-5,
-            "entropy_coefficient":                      0.01,                       # determine exploration rate
+            "entropy_coefficient":                      0.02,                       # determine exploration rate
             
             "joint_number":                             12,
             "gyro_number":                              3,
@@ -45,7 +45,7 @@ TRAIN_CONFIG = {
             "truncate_max_time":                        20.0,                       # s
             "text_update_time":                         1.0,                        # s
 
-            "action_scale":                             0.25,
+            "action_scale":                             0.3,
             "action_range":                             [-1.0, 1.0],
             "action_delta_range":                       [-0.05, 0.05],
             "action_filter_alpha":                      0.2,
@@ -56,14 +56,14 @@ TRAIN_CONFIG = {
                 "dom_rand_imu_gyro_scale":              np.pi/90,
                 "dom_rand_imu_roll_pitch_scale":        np.pi/180,
             "toggle_init_var_schedule":                 True,
-                "init_joint_pos_var_range":             [-np.pi/18, np.pi/18],
+                "init_joint_pos_var_range":             [-np.pi/36, np.pi/36],
                 "init_rot_var_range":                   [-np.pi,    np.pi],
             "toggle_rew_pen_schedule":                  True,
                 "y_final_val":                          2.0,
                 "x_mid_point":                          0.4,
                 "sigmoid_steepness":                    12.0,
             "toggle_penalty_joint_pos_init_schedul":    True,
-                "joint_pos_init_decay_rate":            10.0,
+                "joint_pos_init_decay_rate":            20.0,
             "toggle_push_force_schedule":               False,
                 "push_force_max":                       5.0,                        # N
                 "push_interval":                        2.0,                        # s
@@ -78,19 +78,19 @@ TRAIN_CONFIG = {
             "reward_height_scale":                      1.0,
             "reward_height_sigma":                      0.03,                       # m
             "reward_survival_scale":                    0.2,
-            "reward_feet_contact_scale":                0.1,
+            "reward_feet_contact_scale":                0.4,
             "penalty_joint_vel_scale":                  1.0E-2,
-            "penalty_joint_acc_scale":                  1.0E-5,
-            "penalty_ang_vel_scale":                    1.0,
-            "penalty_yaw_rate_scale":                   1.0,
+            "penalty_joint_acc_scale":                  1.0E-6,
+            "penalty_ang_vel_scale":                    0.01,
+            "penalty_yaw_rate_scale":                   0.01,
             "penalty_lin_vel_scale":                    1.0,           
             "penalty_joint_torque_scale":               1.0E-2,
             "penalty_joint_power_scale":                2.0E-2,
             "penalty_leg_torque_scale":                 0.5,
             "penalty_slip_scale":                       100.0,
-            "penalty_joint_pos_init_scale":             0.1,
+            "penalty_joint_pos_init_scale":             0.05,
             "penalty_action_scale":                     0.005,
-            "penalty_action_rate_scale":                1.0,
+            "penalty_action_rate_scale":                0.1,
 
             "termination_threshold_roll":               np.pi/4,                    # rad
             "termination_threshold_pitch":              np.pi/4,                    # rad
@@ -305,7 +305,8 @@ class CubicDoggoEnv(gym.Env):
             pos_shift = self.np_random.uniform(*(self.init_var_schedule*init_joint_pos_var_range), size=self.joint_number)
             self.mujoco_data.qpos[-self.joint_number:] += pos_shift
             # rot_var
-            yaw_angle = self.np_random.uniform(*(self.init_var_schedule*init_rot_var_range))
+            #yaw_angle = self.np_random.uniform(*(self.init_var_schedule*init_rot_var_range))
+            yaw_angle = self.np_random.uniform(*init_rot_var_range)
             angle_R = pinocchio.rpy.rpyToMatrix(0.0, 0.0, yaw_angle)
             angle_q = pinocchio.Quaternion(angle_R)
             angle_q = angle_q*self.base_q
@@ -385,9 +386,9 @@ class CubicDoggoEnv(gym.Env):
         target_height             = TRAIN_CONFIG["target_height"]
 
         reward_roll_pitch_scale   = TRAIN_CONFIG["reward_roll_pitch_scale"]
-        reward_roll_pitch_sigma   = TRAIN_CONFIG["reward_roll_pitch_sigma"]             /self.rew_pen_schedule
+        reward_roll_pitch_sigma   = TRAIN_CONFIG["reward_roll_pitch_sigma"]             #/self.rew_pen_schedule
         reward_height_scale       = TRAIN_CONFIG["reward_height_scale"]
-        reward_height_sigma       = TRAIN_CONFIG["reward_height_sigma"]                 /self.rew_pen_schedule
+        reward_height_sigma       = TRAIN_CONFIG["reward_height_sigma"]                 #/self.rew_pen_schedule
         reward_survival_scale     = TRAIN_CONFIG["reward_survival_scale"]
         reward_feet_contact_scale = TRAIN_CONFIG["reward_feet_contact_scale"]           *self.rew_pen_schedule
         penalty_joint_vel_scale   = TRAIN_CONFIG["penalty_joint_vel_scale"]
@@ -395,10 +396,10 @@ class CubicDoggoEnv(gym.Env):
         penalty_ang_vel_scale     = TRAIN_CONFIG["penalty_ang_vel_scale"]               *self.rew_pen_schedule
         penalty_yaw_rate_scale    = TRAIN_CONFIG["penalty_yaw_rate_scale"]              *self.rew_pen_schedule
 
-        penalty_lin_vel_scale        = TRAIN_CONFIG["penalty_lin_vel_scale"]          *self.rew_pen_schedule
+        penalty_lin_vel_scale        = TRAIN_CONFIG["penalty_lin_vel_scale"]            *self.rew_pen_schedule
         penalty_joint_torque_scale   = TRAIN_CONFIG["penalty_joint_torque_scale"]
         penalty_joint_power_scale    = TRAIN_CONFIG["penalty_joint_power_scale"]
-        penalty_leg_torque_scale     = TRAIN_CONFIG["penalty_leg_torque_scale"]       *self.rew_pen_schedule
+        penalty_leg_torque_scale     = TRAIN_CONFIG["penalty_leg_torque_scale"]         *self.rew_pen_schedule
         penalty_slip_scale           = TRAIN_CONFIG["penalty_slip_scale"]
         penalty_joint_pos_init_scale = TRAIN_CONFIG["penalty_joint_pos_init_scale"]
 
@@ -463,7 +464,7 @@ class CubicDoggoEnv(gym.Env):
         reward_roll_pitch   = reward_roll_pitch_scale*np.exp(-residual_orientation/(2*np.square(reward_roll_pitch_sigma)))
         reward_height       = reward_height_scale*np.exp(-residual_height/(2*np.square(reward_height_sigma)))
         reward_survival     = reward_survival_scale       # flat alive bonus. Reward already accumulates over step alive
-        reward_feet_contact = reward_feet_contact_scale*np.sum(foot_contacts)
+        reward_feet_contact = reward_feet_contact_scale*(np.sum(foot_contacts)/4.0)
         reward_dict["reward_roll_pitch"]   = reward_roll_pitch
         reward_dict["reward_height"]       = reward_height
         reward_dict["reward_survival"]     = reward_survival
@@ -485,10 +486,12 @@ class CubicDoggoEnv(gym.Env):
         infos_dict["reward_dict"] = reward_dict
 
         reward_ratio_dict = {}
-        reward_ratio_dict["reward_roll_pitch_ratio"] = reward_dict["reward_roll_pitch"]/reward_roll_pitch_scale
-        reward_ratio_dict["reward_height_ratio"]     = reward_dict["reward_height"]    /reward_height_scale
-        reward_ratio_dict["reward_survival_ratio"]   = reward_dict["reward_survival"]  /reward_survival_scale
-        reward_ratio_dict["reward_full_ratio"]       = reward/(reward_roll_pitch_scale+reward_height_scale+reward_survival_scale)
+        reward_ratio_dict["reward_roll_pitch_ratio"]   = reward_dict["reward_roll_pitch"]  /reward_roll_pitch_scale
+        reward_ratio_dict["reward_height_ratio"]       = reward_dict["reward_height"]      /reward_height_scale
+        reward_ratio_dict["reward_survival_ratio"]     = reward_dict["reward_survival"]    /reward_survival_scale
+        reward_ratio_dict["reward_feet_contact_ratio"] = reward_dict["reward_feet_contact"]/reward_feet_contact_scale
+        reward_ratio_dict["reward__full_ratio"]        = reward/(reward_roll_pitch_scale + reward_height_scale +
+                                                                 reward_survival_scale + reward_feet_contact_scale)
         
         infos_dict["reward_ratio_dict"] = reward_ratio_dict
 
