@@ -39,6 +39,8 @@ To have a window for keyboard control:
 Reminder that ``~/.gz/sim/8/gui.config``contains GUI display options, such as camera location. Then run:
 
     cd CubicDoggo_06Z
+    # select the following in ``CubicDoggo_06Z/src/my_robot_bringup/launch/cubic_doggo.gazebo.with_lifecycle.launch.py``:
+    ## executable="cubic_doggo_lifecycle_imu",
     colcon build
     source install/setup.bash
     ros2 launch my_robot_bringup cubic_doggo.gazebo.with_lifecycle.launch.py
@@ -111,6 +113,8 @@ To have 1 leg for the MuJoCo test, run:
 
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
+    # select the following in ``CubicDoggo_06Z/src/my_robot_bringup/launch/cubic_doggo.mujoco.with_lifecycle.launch.py``:
+    ## executable="cubic_doggo_lifecycle_imu",
     colcon build --cmake-clean-first
     source install/setup.bash
     ros2 run my_robot_commander_py cubic_leg1_mujoco_init
