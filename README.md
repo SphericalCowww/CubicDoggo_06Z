@@ -123,10 +123,10 @@ To have the full robot with IMU as output, run:
 
 To launch with commander/controller:
     
-    ros2 launch my_robot_commander_py cubic_doggo.mujoco.with_lifecycle.launch.py
+    ros2 launch my_robot_bringup cubic_doggo.mujoco.with_lifecycle.launch.py
     ros2 run plotjuggler plotjuggler      # on another terminal
 
-Note that this ROS2 to MuJoCo bridge does not use mujoco_ros2_control, but action server and joint state publisher instead. The reaction should rightfully be slower and less deterministic, but MuJoCo is plenty fast that its speed actually needs to be tuned by actuator PID under ``CubicDoggo_06Z/src/my_robot_description/urdf/cubic_doggo.mujoco.xml``.
+Note that this ROS2 to MuJoCo bridge does not use ``mujoco_ros2_control``, but ``action server`` and ``joint state publisher`` instead. The reaction should rightfully be slower and less deterministic, but MuJoCo is plenty fast that its speed actually needs to be tuned by actuator PID under ``CubicDoggo_06Z/src/my_robot_description/urdf/cubic_doggo.mujoco.xml``.
 
 <img src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_MuJoCo.png" height="500">
 
