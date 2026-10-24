@@ -17,6 +17,7 @@ find_package(nlohmann_json REQUIRED)
 find_package(onnxruntime REQUIRED)
 
 include_directories(include)
+include_directories(/opt/onnxruntime/include)
 
 ###########################################################################
 add_executable(cubic_doggo_lifecycle src/cubic_doggo_lifecycle.cpp)
@@ -25,10 +26,11 @@ ament_target_dependencies(cubic_doggo_lifecycle rclcpp moveit_ros_planning_inter
 add_executable(cubic_doggo_lifecycle_imu src/cubic_doggo_lifecycle_imu.cpp)
 ament_target_dependencies(cubic_doggo_lifecycle_imu rclcpp moveit_ros_planning_interface moveit_core example_interfaces my_robot_interface control_toolbox)
 
-add_executable(cubic_doggo_lifecycle_ppo src/cubic_doggo_lifecycle_ppo.cpp)
-ament_target_dependencies(cubic_doggo_lifecycle_ppo rclcpp moveit_ros_planning_interface moveit_core example_interfaces my_robot_interface control_toolbox nlohmann_json onnxruntime)
+add_executable(cubic_doggo_lifecycle_onnx src/cubic_doggo_lifecycle_onnx.cpp)
+ament_target_dependencies(cubic_doggo_lifecycle_onnx rclcpp moveit_ros_planning_interface moveit_core example_interfaces my_robot_interface control_toolbox nlohmann_json onnxruntime)
+target_link_libraries(cubic_doggo_lifecycle_onnx /opt/onnxruntime/lib/libonnxruntime.so)
  
-install(TARGETS cubic_doggo_lifecycle cubic_doggo_lifecycle_imu cubic_doggo_lifecycle_ppo
+install(TARGETS cubic_doggo_lifecycle cubic_doggo_lifecycle_imu cubic_doggo_lifecycle_onnx
   DESTINATION lib/${PROJECT_NAME}
 )
 

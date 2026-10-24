@@ -21,20 +21,21 @@ def main():
         joint_names.append('servo2_servo2_padding_'+leg_prefix)
         joint_names.append('servo3_calfFeet_'      +leg_prefix)
 
-#    model_name = 'policy_stand2_slope'
-#    reinforcement_path = get_package_share_directory('my_robot_commander_py')
-#    norm_path = os.path.join(reinforcement_path, 'deploy_model', model_name+'_vecNorm.pkl')
-#    onnx_path = os.path.join(reinforcement_path, 'deploy_model', model_name+'_model.onnx')
-    model_name = 'cubic_doggo_slope_261023_stand1_4'
-    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/"+model_name+"_vec_norm.pkl"
-    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/"+model_name+".onnx"
+    #model_name = 'policy1_force_kinematicHeight'
+    model_name = 'policy2_slopeFixed'
+    reinforcement_path = get_package_share_directory('my_robot_commander_py')
+    norm_path = os.path.join(reinforcement_path, 'deploy_model', model_name+'_vecNorm.pkl')
+    onnx_path = os.path.join(reinforcement_path, 'deploy_model', model_name+'_model.onnx')
+#    model_name = 'cubic_doggo_slope_261023_stand1_4'
+#    norm_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/"+model_name+"_vec_norm.pkl"
+#    onnx_path = "/home/cubicdoggo/Documents/CubicDoggo_06Z/ppo_tensorboards/"+model_name+".onnx"
 
     pkg_share_path = get_package_share_directory('my_robot_description')
     xacro_path     = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.urdf.xacro')
+    #mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_stand.xml')
     mjcf_path      = os.path.join(pkg_share_path, 'urdf', 'cubic_doggo.mujoco.ppo_slope.xml')
     usdf_file      =                                      'cubic_doggo.mujoco.urdf'
 
-    
     ################
     print("cubic_doggo_mujoco_ppo_stand_deploy(): loading model ONNX file:", onnx_path)
     ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
@@ -174,11 +175,10 @@ def main():
             if mujoco_data.time > action_delay_time:
                 norm_obs = normalize_obs(raw_obs)
                 onnx_outputs = ort_session.run([ort_output_name], {ort_input_name: norm_obs.reshape(1, -1)})
+                
                 action = np.clip(onnx_outputs[0][0], *action_range)
-
                 action_delta = np.clip(action - last_action, *action_delta_range)
                 action = last_action + action_delta
-
                 filtered_action = action_filter_alpha*action + (1.0 - action_filter_alpha)*last_action
                 target_ctrl = initial_ctrl + filtered_action*action_scale
                 mujoco_data.ctrl[:] = target_ctrl

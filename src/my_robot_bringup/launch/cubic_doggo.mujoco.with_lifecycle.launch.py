@@ -21,7 +21,7 @@ def generate_launch_description():
 
     mujoco_ros2_bridge = Node(
         package="my_robot_commander_py",
-        executable="cubic_doggo_mujoco_bridge", # Ensure this matches your setup.py entry point
+        executable="cubic_doggo_mujoco_ros_bridge", # Ensure this matches your setup.py entry point
         output="screen",
     )
 
@@ -50,7 +50,8 @@ def generate_launch_description():
     lifecycle_node = Node(
         package="my_robot_commander",
         #executable="cubic_doggo_lifecycle",
-        executable="cubic_doggo_lifecycle_imu",
+        #executable="cubic_doggo_lifecycle_imu",
+        executable="cubic_doggo_lifecycle_onnx",
         parameters=[
             moveit_config.robot_description,           # the URDF math
             moveit_config.robot_description_semantic,  # the SRDF 

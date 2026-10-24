@@ -20,6 +20,7 @@
 #include <moveit/trajectory_processing/ruckig_traj_smoothing.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <moveit_msgs/action/execute_trajectory.hpp>
+#include <realtime_tools/realtime_buffer.hpp>
  
 using rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface;
 using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
@@ -537,7 +538,7 @@ private:
                     policy_idx_resolved_ = resolvePolicyIndices_(joint_state_obj);
                 }
                 initial_ctrl_.assign(jointN_, 0.0);
-                for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) {
+                for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) {
                     if (policy_idx_[jointIdx] >= 0) {
                         initial_ctrl_[jointIdx] = joint_state_obj.position[policy_idx_[jointIdx]];
                     }
@@ -722,7 +723,7 @@ private:
                 target_state->copyJointGroupPositions(joint_model_group, joint_traj_pt.positions);
             } else {
                 joint_traj_pt.positions.assign(joint_names.size(), 0.0);
-                for (int jointIdx = 0; jointIdx < int(joint_names.size()); jointIdx++) {
+                for (std::size_t jointIdx = 0; jointIdx < int(joint_names.size()); jointIdx++) {
                     auto jointID = std::find(policy_joint_names_.begin(), policy_joint_names_.end(), 
                                              joint_names[jointIdx]);
                     if (jointID != policy_joint_names_.end()) {
@@ -875,14 +876,15 @@ private:
             str_low  = std::stod(str_cleaned.substr(0, str_comma));
             str_high = std::stod(str_cleaned.substr(str_comma + 1));
         };
-        int joint_number = std::stoi(ort_meta_map("joint_number", std::to_string(jointN_)));
+        int joint_number = std::stoi(ort_meta_map("joint_number", std::to_string(jointN_).c_str()));
         if (joint_number != int(jointN_)) {
             RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
                                        "ONNX joint_number mismatch");
             return false;
         }
-        action_scale_        = std::stod(ort_meta_map("action_scale",        std::to_string(action_scale_)));
-        action_filter_alpha_ = std::stod(ort_meta_map("action_filter_alpha", std::to_string(action_filter_alpha_)));
+        action_scale_        = std::stod(ort_meta_map("action_scale", std::to_string(action_scale_).c_str()));
+        action_filter_alpha_ = std::stod(ort_meta_map("action_filter_alpha", 
+                                         std::to_string(action_filter_alpha_).c_str()));
         parse_range(ort_meta_map("action_range",       "(-1.0, 1.0)"), action_range_[0],      action_range_[1]);
         parse_range(ort_meta_map("action_delta_range", "(-0.1, 0.1)"), action_delta_range_[0],action_delta_range_[1]);
         initial_ctrl_.assign(jointN_, 0.0);
@@ -892,7 +894,7 @@ private:
     }
     bool resolvePolicyIndices_(const sensor_msgs::msg::JointState& joint_state_obj) {
         bool policy_idx_resolved = true; 
-        for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) {
+        for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) {
             auto jointID = std::find(joint_state_obj.name.begin(), joint_state_obj.name.end(), 
                                      policy_joint_names_[jointIdx]);
             policy_idx_[jointIdx] = (jointID == joint_state_obj.name.end()) ? -1 : 
@@ -912,25 +914,25 @@ private:
             policy_idx_resolved_ = resolvePolicyIndices_(joint_state_obj);
             if (policy_idx_resolved_ == false) return false;
         }
-        for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) { 
+        for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) { 
             if (policy_idx_[jointIdx] < 0) return false;
         }
 
         raw_obs.clear();
         raw_obs.reserve(2*jointN_);
-        for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) {
+        for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) {
             raw_obs.push_back( float(joint_state_obj.position[policy_idx_[jointIdx]]) );
         }
         if ((joint_state_obj.velocity.empty() == false) && 
             (joint_state_obj.velocity.size() == joint_state_obj.position.size())) {
-            for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) {
+            for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) {
                 raw_obs.push_back( float(joint_state_obj.velocity[policy_idx_[jointIdx]]) );
             }
         } else {
             auto now = this->get_clock()->now();
             double delta_t = (now - last_js_time_).seconds();
             if ( delta_t <= 0.0) delta_t = 1.0/double(update_rate_);
-            for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) {
+            for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) {
                 double pos_val = joint_state_obj.position[policy_idx_[jointIdx]];
                 raw_obs.push_back( float((pos_val - last_js_pos_[jointIdx])/delta_t) );
                 last_js_pos_[jointIdx] = pos_val;
@@ -947,16 +949,16 @@ private:
     }
     std::vector<double> processAction_(const float* onnx_outputs) {
         std::vector<float> action(jointN_);
-        for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) {
+        for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) {
             action[jointIdx] = std::clamp(onnx_outputs[jointIdx], float(action_range_[0]), float(action_range_[1]));
         }
-        for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) {
+        for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) {
             float action_delta = std::clamp(action[jointIdx] - last_action_[jointIdx],
                                             float(action_delta_range_[0]), float(action_delta_range_[1]));
             action[jointIdx] = last_action_[jointIdx] + action_delta;
         }
         std::vector<double> target_ctrl(jointN_, 0.0);
-        for (int jointIdx = 0; jointIdx < jointN_; jointIdx++) {
+        for (std::size_t jointIdx = 0; jointIdx < jointN_; jointIdx++) {
             float filtered_action = action_filter_alpha_*action[jointIdx]
                                   + (1.0 - action_filter_alpha_)*last_action_[jointIdx];
             target_ctrl[jointIdx] = initial_ctrl_[jointIdx] + double(filtered_action*action_scale_);
