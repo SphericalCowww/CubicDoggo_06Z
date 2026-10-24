@@ -21,12 +21,14 @@ Then use this formula to convert to URDF value for each matrix element (I: momen
 
 The convex mesh can also be included for collision geometry; check out ``batteryHolder`` under ``CubicDoggo_06Z/src/my_robot_description/urdf/cubic_doggo.gazebo.xacro``.
 
-Don't forget to check the basic geometry under rViz first:
+Don't forget to check the basic geometry in RViz first:
 
     cd CubicDoggo_06Z
     colcon build
     source install/setup.bash
     ros2 launch my_robot_description cubic_doggo.rviz.launch.xacro.py
+
+NOTE: if colcon build does NOT work because of the later packages that have NOT yet been installed, comment them out under the corresponding ''CMakeLists.txt''.
 
 ## Gazebo
 
@@ -161,6 +163,17 @@ Gymnasium sets up the environment for reinforcement learning, while stable-basel
     colcon build --cmake-clean-first
     source install/setup.bash
     ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand_deploy
+
+### Deploying model to ROS2 commander
+
+Install the JSON reader ``nlohmann`` for loading vector normalization and ONNX reader ``onnxruntime`` for the model policy file:
+
+    sudo apt install nlohmann-json3-dev
+    wget https://github.com/microsoft/onnxruntime/releases/download/v1.31.0/onnxruntime-linux-x64-1.31.0.tgz
+    tar -xzf onnxruntime-linux-x64-1.31.0.tgz
+    sudo mv onnxruntime-linux-x64-1.31.0 /opt/onnxruntime
+    export LD_LIBRARY_PATH=/opt/onnxruntime/lib:$LD_LIBRARY_PATH                     # put it in .bashrc
+    sudo ln -s /opt/onnxruntime/lib /opt/onnxruntime/lib64                           # known onnxruntime bug
 
 ## References:
 
