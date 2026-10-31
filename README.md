@@ -172,17 +172,28 @@ Note that this command produces the vector normalization file in the .json forma
 
 ### Deploying model to ROS2 commander
 
-Install the JSON reader ``nlohmann`` for loading vector normalization and ONNX reader ``onnxruntime`` for the model policy file:
+Install the JSON reader ``nlohmann`` for loading vector normalization and ONNX reader ``onnxruntime`` for the model policy file.
+
+Either on Desktop,
 
     sudo apt install nlohmann-json3-dev
     wget https://github.com/microsoft/onnxruntime/releases/download/v1.31.0/onnxruntime-linux-x64-1.31.0.tgz
     tar -xzf onnxruntime-linux-x64-1.31.0.tgz
     sudo mv onnxruntime-linux-x64-1.31.0 /opt/onnxruntime
-    export LD_LIBRARY_PATH=/opt/onnxruntime/lib:$LD_LIBRARY_PATH                     # put it in .bashrc
-    sudo ln -s /opt/onnxruntime/lib /opt/onnxruntime/lib64                           # known onnxruntime bug
+
+
+Or on Raspberry Pi,
+
+    sudo apt install nlohmann-json3-dev
+    wget https://github.com/microsoft/onnxruntime/releases/download/v1.31.0/onnxruntime-linux-aarch64-1.31.0.tgz
+    tar -xzf onnxruntime-linux-aarch64-1.31.0.tgz
+    sudo mv onnxruntime-linux-aarch64-1.31.0 /opt/onnxruntime
 
 Then,
 
+    export LD_LIBRARY_PATH=/opt/onnxruntime/lib:$LD_LIBRARY_PATH                     # put it in .bashrc
+    sudo ln -s /opt/onnxruntime/lib /opt/onnxruntime/lib64                           # known onnxruntime bug
+    # reboot the computer
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
