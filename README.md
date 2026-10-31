@@ -168,6 +168,8 @@ Gymnasium sets up the environment for reinforcement learning, while stable-basel
     source install/setup.bash
     ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand_deploy
 
+Note that this command produces the vector normalization file in the .json format for the ROS2 deployment, so don't skip this for a new policy.
+
 ### Deploying model to ROS2 commander
 
 Install the JSON reader ``nlohmann`` for loading vector normalization and ONNX reader ``onnxruntime`` for the model policy file:
