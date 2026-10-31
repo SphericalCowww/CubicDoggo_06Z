@@ -25,7 +25,6 @@ public:
         RCLCPP_INFO(this->get_logger(), "CubicDoggoJoyControl:constructor()"
                                         "controller node started, listening on /joy...");
     }
-
 private:
     void joy_callback_(const sensor_msgs::msg::Joy::SharedPtr msg) {
         if (prev_buttons_.size() != msg->buttons.size()) {
@@ -57,18 +56,15 @@ private:
             if (msg->axes[7] < -0.5 && prev_axes_[7] >= -0.5) {
                 call_walk_(false);
             }
-            /*if (msg->axes[6] > 0.5 && prev_axes_[6] <= 0.5) {
-                call_imu_(true);
-            }
-            if (msg->axes[6] < -0.5 && prev_axes_[6] >= -0.5) {
-                call_imu_(false);
-            }*/
             if (msg->axes[6] > 0.5 && prev_axes_[6] <= 0.5) {
-                call_onnx_(true);
+                is_imu_ = !is_imu_;
+                call_imu_(is_imu_);
             }
             if (msg->axes[6] < -0.5 && prev_axes_[6] >= -0.5) {
-                call_onnx_(false);
+                is_onnx_ = !is_onnx_;
+                call_onnx_(is_onnx_);
             }
+
            
             double deadzone = 0.05; 
             auto feet_msg = custom_feet_array();
@@ -135,6 +131,8 @@ private:
     rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr             onnx_client_;
     std::vector<int>   prev_buttons_;
     std::vector<float> prev_axes_;
+    std::atomic<bool> is_imu_{false};
+    std::atomic<bool> is_onnx_{false};
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

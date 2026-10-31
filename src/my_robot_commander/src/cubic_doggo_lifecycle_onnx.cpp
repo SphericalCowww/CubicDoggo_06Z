@@ -52,11 +52,6 @@ const double DEFAULT_ACC_SCALE = 0.05;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include <nlohmann/json.hpp>
 #include <onnxruntime_cxx_api.h>
-#include <ament_index_cpp/get_package_share_directory.hpp>
-static const std::string DEPLOY_DIR = ament_index_cpp::get_package_share_directory("my_robot_commander_py") 
-                                    + "/deploy_model/";
-static const std::string VEC_NORM_PATH   = DEPLOY_DIR + "policy1_force_privilegedHeight_vecNorm.json";
-static const std::string ONNX_MODEL_PATH = DEPLOY_DIR + "policy1_force_privilegedHeight_model.onnx";
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 class CubicDoggoLifecycleManager : public rclcpp_lifecycle::LifecycleNode {
 public:
@@ -176,6 +171,8 @@ public:
             imu_z_corr_[legIdx] = 0.0;
         }
 
+        vec_norm_path_   = this->get_parameter("policy_vec_norm_path").as_string();
+        onnx_model_path_ = this->get_parameter("policy_model_path").as_string();
         if (initializeOnnxModel_() == false) {
             RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): onnx init failed");
             return CallbackReturn::FAILURE;
@@ -606,9 +603,10 @@ private:
             
             previous_time = current_time;
             RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:controlLoop_(): time = %lf\n"
-                                      "is_walking_ = %d, control_initialized_ = %d, idle_name_ = %s", 
-                                      current_time.seconds(), is_walking_.load(), control_initialized_.load(),
-                                      idle_name_.c_str());
+                                      "    is_walking_ = %d, is_imu_ = %d, is_onnx_ = %d, "
+                                      "control_initialized_ = %d, idle_name_ = %s", 
+                                      current_time.seconds(), is_walking_.load(), is_imu_.load(), is_onnx_.load(),
+                                      control_initialized_.load(), idle_name_.c_str());
             RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:controlLoop_(): "
                                       "raw pitch = %lf, raw roll = %lf", 
                                       current_pitch_.load(std::memory_order_relaxed), 
@@ -737,6 +735,7 @@ private:
             joint_traj_pt.time_from_start = rclcpp::Duration::from_seconds(1.0/double(update_rate_));
             traj_msg.points.push_back(joint_traj_pt);
             joint_publisher_->publish(traj_msg);
+            loop_rate.sleep();
         }
     }
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -823,21 +822,20 @@ private:
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     bool initializeOnnxModel_() {
         RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
-                                  "loading vector normalization file: %s", VEC_NORM_PATH.c_str());
-        std::ifstream ifstream_obj(VEC_NORM_PATH);
+                                  "loading vector normalization file: %s", vec_norm_path_.c_str());
+        std::ifstream ifstream_obj(vec_norm_path_);
         if (!ifstream_obj.is_open()) {
             RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
-                                       "failed to load VEC_NORM_PATH");
+                                       "failed to load vec_norm_path_");
             return false;
         }
         nlohmann::json json_data;
         ifstream_obj >> json_data;
-        if (json_data.contains("obs_rms")) {
-            obs_mean_ = json_data["obs_rms"]["mean"].get<std::vector<float>>();
-            obs_var_  = json_data["obs_rms"]["var"].get<std::vector<float>>();
-        } else {
-            obs_mean_ = json_data["mean"].get<std::vector<float>>();
-            obs_var_  = json_data["var"].get<std::vector<float>>();
+        if (json_data.contains("obs_mean")) {
+            obs_mean_ = json_data["obs_mean"].get<std::vector<float>>();
+        } 
+        if (json_data.contains("obs_var")) {
+            obs_var_  = json_data["obs_var"].get<std::vector<float>>();
         }
         if (json_data.contains("clip_obs")) {
             clip_obs_ = json_data["clip_obs"].get<float>();
@@ -845,12 +843,12 @@ private:
 
         ///////////////
         RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
-                                  "loading ONNX model file: %s", ONNX_MODEL_PATH.c_str());
+                                  "loading ONNX model file: %s", onnx_model_path_.c_str());
         ort_env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "CubicDoggoPPO");
         Ort::SessionOptions session_options;
         session_options.SetIntraOpNumThreads(1);
         session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
-        ort_session_ = std::make_unique<Ort::Session>(*ort_env_, ONNX_MODEL_PATH.c_str(), session_options);
+        ort_session_ = std::make_unique<Ort::Session>(*ort_env_, onnx_model_path_.c_str(), session_options);
 
         Ort::AllocatorWithDefaultOptions allocator;
         ort_input_names_str_ .push_back(ort_session_->GetInputNameAllocated (0, allocator).get());
@@ -1040,6 +1038,8 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscriber_;
     std::array<double, legN_> imu_z_corr_{};
 
+    std::string vec_norm_path_;
+    std::string onnx_model_path_;
     std::unique_ptr<Ort::Env>     ort_env_;
     std::unique_ptr<Ort::Session> ort_session_;
     std::vector<const char*>      ort_input_names_;

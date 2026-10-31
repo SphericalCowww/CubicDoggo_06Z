@@ -14,12 +14,16 @@ def generate_launch_description():
     robot_description_path   = get_package_share_path("my_robot_description")
     robot_bringup_path       = get_package_share_path("my_robot_bringup")
     robot_moveit_config_path = get_package_share_path("cubic_doggo_moveit_config")   
+    robot_commander_py_path  = get_package_share_path('my_robot_commander_py')
  
     urdf_path          = os.path.join(robot_description_path,   "urdf",   "cubic_doggo.urdf.xacro")
     robot_controllers  = os.path.join(robot_bringup_path,       "config", "cubic_doggo_controllers.yaml")
     moveit_config_path = os.path.join(robot_moveit_config_path, "launch", "move_group.launch.py")
     rviz_config_path   = os.path.join(robot_description_path,   "rviz",   "cubic_doggo.urdf_config.rviz")
-
+    policy_model_name = 'policy1_force_privilegedHeight'
+    policy_vecNorm_file_path = os.path.join(robot_commander_py_path, 'deploy_model',policy_model_name+'_vecNorm.json')
+    policy_model_file_path   = os.path.join(robot_commander_py_path, 'deploy_model',policy_model_name+'_model.onnx')
+ 
     robot_description = ParameterValue(Command(["xacro ", urdf_path]), value_type=str)
     robot_state_publisher_node = Node(
         package="robot_state_publisher",
@@ -57,14 +61,16 @@ def generate_launch_description():
     )
     lifecycle_node = Node(
         package="my_robot_commander",
-        executable="cubic_doggo_lifecycle",
+        #executable="cubic_doggo_lifecycle",
         #executable="cubic_doggo_lifecycle_imu",
+        executable="cubic_doggo_lifecycle_onnx",
         parameters=[
             moveit_config.robot_description,           # the URDF math
             moveit_config.robot_description_semantic,  # the SRDF 
             moveit_config.robot_description_kinematics,# the kinematics.yaml
             moveit_config.joint_limits,                # the joint_limits.yaml 
-            {"jump_threshold": 0.15},                  # for computeCartesianPath
+            {"policy_vec_norm_path": policy_vecNorm_file_path,
+             "policy_model_path":    policy_model_file_path},
         ],
     )
     

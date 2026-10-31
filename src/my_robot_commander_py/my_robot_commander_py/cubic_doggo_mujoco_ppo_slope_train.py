@@ -26,7 +26,7 @@ TRAIN_CONFIG = {
 
             "render_mode":          None,
             #"render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope2_",
+            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope3_",
             #"policy_model_name":    "cubic_doggo_261023_slope1_",
 
             "rand_seed":                                1,
@@ -78,7 +78,7 @@ TRAIN_CONFIG = {
             "reward_height_scale":                      1.0,
             "reward_height_sigma":                      0.03,                       # m
             "reward_survival_scale":                    0.2,
-            "reward_feet_contact_scale":                0.4,
+            "reward_feet_contact_scale":                0.4,                        # reward on number of feet contact to ground
             "penalty_joint_vel_scale":                  1.0E-2,
             "penalty_joint_acc_scale":                  1.0E-6,
             "penalty_ang_vel_scale":                    0.01,
@@ -86,7 +86,8 @@ TRAIN_CONFIG = {
             "penalty_lin_vel_scale":                    1.0,           
             "penalty_joint_torque_scale":               1.0E-2,
             "penalty_joint_power_scale":                2.0E-2,
-            "penalty_leg_torque_scale":                 0.5,
+            "penalty_leg_torque_scale":                 0.5,                        # penalty on torque std among legs
+            "penalty_feet_extension_scale":             10.0,                       # penalty on non-landed feet not stretching
             "penalty_slip_scale":                       100.0,
             "penalty_joint_pos_init_scale":             0.05,
             "penalty_action_scale":                     0.005,
@@ -255,7 +256,7 @@ class CubicDoggoEnv(gym.Env):
                                     self.pinocchio_joint_pos, self.pinocchio_joint_vel)
         pinocchio.updateFramePlacements(self.pinocchio_model, self.pinocchio_data)
         pinocchio_base_frame = self.pinocchio_data.oMf[self.pinocchio_base_id]
-        for leg_id in self.pinocchio_leg_ids:
+        for leg_id in self.pinocchio_leg_ids:           # following the ordering of self.leg_prefixes
             self.feet_pos.append(pinocchio_base_frame.actInv(self.pinocchio_data.oMf[leg_id]).translation)
             self.feet_vel.append(pinocchio.getFrameVelocity(self.pinocchio_model, self.pinocchio_data, 
                                                             leg_id, pinocchio.ReferenceFrame.WORLD).linear)
@@ -385,21 +386,22 @@ class CubicDoggoEnv(gym.Env):
         target_roll, target_pitch = TRAIN_CONFIG["target_roll"], TRAIN_CONFIG["target_pitch"]
         target_height             = TRAIN_CONFIG["target_height"]
 
-        reward_roll_pitch_scale   = TRAIN_CONFIG["reward_roll_pitch_scale"]
-        reward_roll_pitch_sigma   = TRAIN_CONFIG["reward_roll_pitch_sigma"]             #/self.rew_pen_schedule
-        reward_height_scale       = TRAIN_CONFIG["reward_height_scale"]
-        reward_height_sigma       = TRAIN_CONFIG["reward_height_sigma"]                 #/self.rew_pen_schedule
-        reward_survival_scale     = TRAIN_CONFIG["reward_survival_scale"]
-        reward_feet_contact_scale = TRAIN_CONFIG["reward_feet_contact_scale"]           *self.rew_pen_schedule
-        penalty_joint_vel_scale   = TRAIN_CONFIG["penalty_joint_vel_scale"]
-        penalty_joint_acc_scale   = TRAIN_CONFIG["penalty_joint_acc_scale"]
-        penalty_ang_vel_scale     = TRAIN_CONFIG["penalty_ang_vel_scale"]               *self.rew_pen_schedule
-        penalty_yaw_rate_scale    = TRAIN_CONFIG["penalty_yaw_rate_scale"]              *self.rew_pen_schedule
+        reward_roll_pitch_scale     = TRAIN_CONFIG["reward_roll_pitch_scale"]
+        reward_roll_pitch_sigma     = TRAIN_CONFIG["reward_roll_pitch_sigma"]          #/self.rew_pen_schedule
+        reward_height_scale         = TRAIN_CONFIG["reward_height_scale"]
+        reward_height_sigma         = TRAIN_CONFIG["reward_height_sigma"]              #/self.rew_pen_schedule
+        reward_survival_scale       = TRAIN_CONFIG["reward_survival_scale"]
+        reward_feet_contact_scale   = TRAIN_CONFIG["reward_feet_contact_scale"]        *self.rew_pen_schedule
 
+        penalty_joint_vel_scale      = TRAIN_CONFIG["penalty_joint_vel_scale"]
+        penalty_joint_acc_scale      = TRAIN_CONFIG["penalty_joint_acc_scale"]
+        penalty_ang_vel_scale        = TRAIN_CONFIG["penalty_ang_vel_scale"]            *self.rew_pen_schedule
+        penalty_yaw_rate_scale       = TRAIN_CONFIG["penalty_yaw_rate_scale"]           *self.rew_pen_schedule
         penalty_lin_vel_scale        = TRAIN_CONFIG["penalty_lin_vel_scale"]            *self.rew_pen_schedule
         penalty_joint_torque_scale   = TRAIN_CONFIG["penalty_joint_torque_scale"]
         penalty_joint_power_scale    = TRAIN_CONFIG["penalty_joint_power_scale"]
         penalty_leg_torque_scale     = TRAIN_CONFIG["penalty_leg_torque_scale"]         *self.rew_pen_schedule
+        penalty_feet_extension_scale = TRAIN_CONFIG["penalty_feet_extension_scale"]
         penalty_slip_scale           = TRAIN_CONFIG["penalty_slip_scale"]
         penalty_joint_pos_init_scale = TRAIN_CONFIG["penalty_joint_pos_init_scale"]
 
@@ -414,15 +416,16 @@ class CubicDoggoEnv(gym.Env):
                           self.term_data["height_low"] or self.term_data["height_high"])
         truncated = bool(self.mujoco_data.time >= self.truncate_max_time)               # truncated is termination without penalty
 
-        residual_roll        = np.square(data_roll - target_roll) 
-        residual_pitch       = np.square(data_pitch - target_pitch)
-        residual_orientation = residual_roll + residual_pitch
-        residual_height      = np.square(data_height - target_height)
-        residual_pos         = np.square(data_joint_pos - self.initial_ctrl)
-        residual_leg_torque  = np.std(sim_leg_torque)
-        residual_vel         = 0.0
-        residual_action      = 0.0
-        residual_slip        = 0.0
+        residual_roll               = np.square(data_roll - target_roll) 
+        residual_pitch              = np.square(data_pitch - target_pitch)
+        residual_orientation        = residual_roll + residual_pitch
+        residual_height             = np.square(data_height - target_height)
+        residual_pos                = np.square(data_joint_pos - self.initial_ctrl)
+        residual_leg_torque         = np.std(sim_leg_torque)
+        residual_vel                = 0.0
+        residual_action             = 0.0
+        residual_slip               = 0.0
+        residual_hanging_leg_height = 0.0
         if self.first_step_after_reset == False:
             joint_acc = (data_joint_vel - self.last_joint_vel)/(self.mujoco_model.opt.timestep*self.stepN_per_action)
             residual_vel = np.square(joint_acc)
@@ -439,9 +442,13 @@ class CubicDoggoEnv(gym.Env):
                 if (geom_contact.geom1 == self.mujoco_slope_id and geom_contact.geom2 == foot_id) or \
                    (geom_contact.geom2 == self.mujoco_slope_id and geom_contact.geom1 == foot_id):
                     foot_contacts[foot_idx] = True 
-        for foot_vel, in_contact in zip(self.feet_vel, foot_contacts):
+        for foot_pos, foot_vel, in_contact in zip(self.feet_pos, self.feet_vel, foot_contacts):
             if in_contact == True:
                 residual_slip += np.sum(np.square(foot_vel[:2]))
+            else:
+                residual_hanging_leg_height += (target_height - foot_pos[2])
+        if len(self.leg_prefixes) != np.sum(foot_contacts):
+            residual_hanging_leg_height /= (len(self.leg_prefixes) - np.sum(foot_contacts))
         #print("cubic_doggo_mujoco_ppo_stand_train(): contact geom_ids:", 
         #      [[self.mujoco_data.contact[contact_id].geom1, self.mujoco_data.contact[contact_id].geom2] 
         #        for contact_id in range(self.mujoco_data.ncon)])
@@ -461,37 +468,38 @@ class CubicDoggoEnv(gym.Env):
         infos_dict["obs_dict"] = obs_dict
         ### 
         reward_dict = {}
-        reward_roll_pitch   = reward_roll_pitch_scale*np.exp(-residual_orientation/(2*np.square(reward_roll_pitch_sigma)))
-        reward_height       = reward_height_scale*np.exp(-residual_height/(2*np.square(reward_height_sigma)))
-        reward_survival     = reward_survival_scale       # flat alive bonus. Reward already accumulates over step alive
-        reward_feet_contact = reward_feet_contact_scale*(np.sum(foot_contacts)/4.0)
-        reward_dict["reward_roll_pitch"]   = reward_roll_pitch
-        reward_dict["reward_height"]       = reward_height
-        reward_dict["reward_survival"]     = reward_survival
-        reward_dict["reward_feet_contact"] = reward_feet_contact
-        reward_dict["penalty_joint_vel"]    = -penalty_joint_vel_scale   *np.sum(np.square(data_joint_vel))
-        reward_dict["penalty_joint_acc"]    = -penalty_joint_acc_scale   *np.sum(residual_vel)
-        reward_dict["penalty_ang_vel"]      = -penalty_ang_vel_scale     *np.sum(np.square(data_gyro))
-        reward_dict["penalty_yaw_rate"]     = -penalty_yaw_rate_scale    *np.square(data_gyro[2])
-        reward_dict["penalty_lin_vel"]      = -penalty_lin_vel_scale     *np.sum(np.square(sim_lin_vel))
-        reward_dict["penalty_joint_torque"] = -penalty_joint_torque_scale*np.sum(np.square(sim_joint_torque))
-        reward_dict["penalty_joint_power"]  = -penalty_joint_power_scale *np.sum(np.abs(sim_joint_torque*data_joint_vel))
-        reward_dict["penalty_leg_torque"]   = -penalty_leg_torque_scale  *residual_leg_torque
-        reward_dict["penalty_slip"]         = -penalty_slip_scale        *residual_slip
-        reward_dict["penalty_action"]       = -penalty_action_scale      *np.sum(np.square(action))
-        reward_dict["penalty_action_rate"]  = -penalty_action_rate_scale *np.sum(residual_action)
+        reward_roll_pitch     = reward_roll_pitch_scale*np.exp(-residual_orientation/(2*np.square(reward_roll_pitch_sigma)))
+        reward_height         = reward_height_scale*np.exp(-residual_height/(2*np.square(reward_height_sigma)))
+        reward_survival       = reward_survival_scale       # flat alive bonus. Reward already accumulates over step alive
+        reward_feet_contact   = reward_feet_contact_scale  *(np.sum(foot_contacts)/4.0)
+        reward_dict["reward_roll_pitch"]     = reward_roll_pitch
+        reward_dict["reward_height"]         = reward_height
+        reward_dict["reward_survival"]       = reward_survival
+        reward_dict["reward_feet_contact"]   = reward_feet_contact
+        reward_dict["penalty_joint_vel"]      = -penalty_joint_vel_scale     *np.sum(np.square(data_joint_vel))
+        reward_dict["penalty_joint_acc"]      = -penalty_joint_acc_scale     *np.sum(residual_vel)
+        reward_dict["penalty_ang_vel"]        = -penalty_ang_vel_scale       *np.sum(np.square(data_gyro))
+        reward_dict["penalty_yaw_rate"]       = -penalty_yaw_rate_scale      *np.square(data_gyro[2])
+        reward_dict["penalty_lin_vel"]        = -penalty_lin_vel_scale       *np.sum(np.square(sim_lin_vel))
+        reward_dict["penalty_joint_torque"]   = -penalty_joint_torque_scale  *np.sum(np.square(sim_joint_torque))
+        reward_dict["penalty_joint_power"]    = -penalty_joint_power_scale   *np.sum(np.abs(sim_joint_torque*data_joint_vel))
+        reward_dict["penalty_leg_torque"]     = -penalty_leg_torque_scale    *residual_leg_torque
+        reward_dict["penalty_feet_extension"] = -penalty_feet_extension_scale*residual_hanging_leg_height
+        reward_dict["penalty_slip"]           = -penalty_slip_scale          *residual_slip
+        reward_dict["penalty_action"]         = -penalty_action_scale        *np.sum(np.square(action))
+        reward_dict["penalty_action_rate"]    = -penalty_action_rate_scale   *np.sum(residual_action)
         reward_dict["penalty_joint_pos_init"]  = -penalty_joint_pos_init_scale*np.sum(residual_pos)
         reward_dict["penalty_joint_pos_init"] *= self.penalty_joint_pos_init_schedule        
         reward = float(sum(reward_dict.values()))
         infos_dict["reward_dict"] = reward_dict
 
         reward_ratio_dict = {}
-        reward_ratio_dict["reward_roll_pitch_ratio"]   = reward_dict["reward_roll_pitch"]  /reward_roll_pitch_scale
-        reward_ratio_dict["reward_height_ratio"]       = reward_dict["reward_height"]      /reward_height_scale
-        reward_ratio_dict["reward_survival_ratio"]     = reward_dict["reward_survival"]    /reward_survival_scale
-        reward_ratio_dict["reward_feet_contact_ratio"] = reward_dict["reward_feet_contact"]/reward_feet_contact_scale
-        reward_ratio_dict["reward__full_ratio"]        = reward/(reward_roll_pitch_scale + reward_height_scale +
-                                                                 reward_survival_scale + reward_feet_contact_scale)
+        reward_ratio_dict["reward_roll_pitch_ratio"]     = reward_dict["reward_roll_pitch"]    /reward_roll_pitch_scale
+        reward_ratio_dict["reward_height_ratio"]         = reward_dict["reward_height"]        /reward_height_scale
+        reward_ratio_dict["reward_survival_ratio"]       = reward_dict["reward_survival"]      /reward_survival_scale
+        reward_ratio_dict["reward_feet_contact_ratio"]   = reward_dict["reward_feet_contact"]  /reward_feet_contact_scale
+        reward_ratio_dict["reward__full_ratio"] = reward/(reward_roll_pitch_scale + reward_height_scale + reward_survival_scale + 
+                                                          reward_feet_contact_scale)
         
         infos_dict["reward_ratio_dict"] = reward_ratio_dict
 

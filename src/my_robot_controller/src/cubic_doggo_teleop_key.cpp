@@ -39,6 +39,7 @@ public:
         command_pub_ = this->create_publisher<example_interfaces::msg::String>("/leg_set_named", 10);
         walk_client_ = this->create_client<std_srvs::srv::SetBool>            ("/leg_walk_toggle");
         imu_client_  = this->create_client<std_srvs::srv::SetBool>            ("/leg_imu_toggle");
+        onnx_client_ = this->create_client<std_srvs::srv::SetBool>            ("/leg_onnx_toggle");
         feet_pub_    = this->create_publisher<custom_feet_array>              ("/leg_set_feet", 10);
         RCLCPP_INFO(this->get_logger(), "CubicDoggoTeleopKey:constructor()"
                                         "controller node started, listening on /joy...");      
@@ -51,6 +52,7 @@ public:
         std::cout << "Press 's' to rest\n";
         std::cout << "Press 'z' to walk, and arrow keys for the directions\n";
         std::cout << "Press 'x' to start imu\n";
+        std::cout << "Press 'c' to start onnx policy\n";
         std::cout << "Press 'q' to quit\n";
     }
 
@@ -90,6 +92,9 @@ public:
             } else if (keyPressed == 'x') {
                 call_imu_(!is_imu_);
                 is_imu_ = !is_imu_;
+            } else if (keyPressed == 'c') {
+                call_onnx_(!is_onnx_);
+                is_onnx_ = !is_onnx_;
             } else if (keyPressed == 'q') {
                 RCLCPP_INFO(this->get_logger(), "exiting");
                 break;
@@ -139,15 +144,30 @@ private:
         RCLCPP_INFO(this->get_logger(), "CubicDoggoTeleopKey:call_imu_(): imu state '%s' sent",
                                         imu_state_str.c_str());
     }
+    void call_onnx_(bool onnx_state) {
+        if (!onnx_client_->wait_for_service(std::chrono::milliseconds(500))) {
+            RCLCPP_WARN(this->get_logger(), "CubicDoggoTeleopKey:call_walk_(): "
+                                            "service /leg_walk_toggle not available!");
+            return;
+        }
+        auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+        request->data = onnx_state;
+        auto result = onnx_client_->async_send_request(request);
+        std::string onnx_state_str = onnx_state ? "true" : "false";
+        RCLCPP_INFO(this->get_logger(), "CubicDoggoTeleopKey:call_onnx_(): onnx state '%s' sent",
+                                        onnx_state_str.c_str());
+    }
 
     rclcpp::Publisher<example_interfaces::msg::String>::SharedPtr command_pub_;
     rclcpp::Publisher<custom_feet_array>::SharedPtr               feet_pub_;
     rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr             walk_client_;
     rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr             imu_client_;
+    rclcpp::Client<std_srvs::srv::SetBool>::SharedPtr             onnx_client_;
     bool   is_walking_ = false;
     double current_x_  = 0.0;
     double current_y_  = 0.0;
     bool   is_imu_     = false;
+    bool   is_onnx_    = false; 
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

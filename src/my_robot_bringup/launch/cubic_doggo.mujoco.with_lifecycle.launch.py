@@ -14,11 +14,16 @@ def generate_launch_description():
     robot_description_path   = get_package_share_path('my_robot_description')
     robot_bringup_path       = get_package_share_path('my_robot_bringup')
     robot_moveit_config_path = get_package_share_path('cubic_doggo_moveit_config')   
+    robot_commander_py_path  = get_package_share_path('my_robot_commander_py')
  
     urdf_path          = os.path.join(robot_description_path,   'urdf',   'cubic_doggo.gazebo.xacro')
     moveit_config_path = os.path.join(robot_moveit_config_path, 'launch', 'move_group.launch.py')
     rviz_config_path   = os.path.join(robot_description_path,   'rviz',   'cubic_doggo.urdf_config.rviz')
-
+    #policy_model_name = 'policy1_force_privilegedHeight'
+    policy_model_name = 'policy2_slopeFixed'
+    policy_vecNorm_file_path = os.path.join(robot_commander_py_path, 'deploy_model',policy_model_name+'_vecNorm.json')
+    policy_model_file_path   = os.path.join(robot_commander_py_path, 'deploy_model',policy_model_name+'_model.onnx')
+ 
     mujoco_ros2_bridge = Node(
         package="my_robot_commander_py",
         executable="cubic_doggo_mujoco_ros_bridge", # Ensure this matches your setup.py entry point
@@ -57,7 +62,8 @@ def generate_launch_description():
             moveit_config.robot_description_semantic,  # the SRDF 
             moveit_config.robot_description_kinematics,# the kinematics.yaml
             moveit_config.joint_limits,                # the joint_limits.yaml 
-            {"jump_threshold": 0.15},                  # for computeCartesianPath
+            {"policy_vec_norm_path": policy_vecNorm_file_path,
+             "policy_model_path":    policy_model_file_path},
         ],
     )  
  
