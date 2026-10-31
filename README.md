@@ -1,6 +1,6 @@
 # CubicDoggo 06Z: Homemade 12-DOF 4-Legged Robot Recipe with Simulation and Reinforcement Learning
 
-Cubic Doggo 06Z Neucommu is upgraded from [Cubic Doggo 06R High Mobility](https://github.com/SphericalCowww/CubicDoggo_06R). The goal is to integrate a simulation (Gazebo/Mujoco) and reinforcement learning (PyTorch) to control walking gait. 
+Cubic Doggo 06Z Neucommu is an upgrade from [Cubic Doggo 06R High Mobility](https://github.com/SphericalCowww/CubicDoggo_06R). The goal is to integrate simulation (Gazebo/MuJoCo) and reinforcement learning (PyTorch) to control the standing/walking gait. 
 
 Demos: Gazebo with Plotjuggler ([Reddit](https://www.reddit.com/r/ROS/comments/1vomb40/cubic_doggo_update_on_gazebo/)), Gazebo sim vs real ([Reddit](https://www.reddit.com/r/robotics/comments/1vpu2sd/cubic_doggo_found_a_nice_spot_on_the_ramp/)), MuJoCo sim ([Reddit](https://www.reddit.com/r/ROS/comments/1w8vm74/cubic_doggo_update_ros2_bridge_to_mujoco/), Pinocchio walk ([Reddit](https://www.reddit.com/r/robotics/comments/1wgilv9/cubic_doggo_ik_walking_with_pinocchio/)), Gym SB3 PPO RL for standing ([Reddit](https://www.reddit.com/r/reinforcementlearning/comments/1xbg89q/cubic_doggo_update_training_with_horizontal_pushes/))
 
@@ -178,6 +178,31 @@ Install the JSON reader ``nlohmann`` for loading vector normalization and ONNX r
     sudo mv onnxruntime-linux-x64-1.31.0 /opt/onnxruntime
     export LD_LIBRARY_PATH=/opt/onnxruntime/lib:$LD_LIBRARY_PATH                     # put it in .bashrc
     sudo ln -s /opt/onnxruntime/lib /opt/onnxruntime/lib64                           # known onnxruntime bug
+
+Then,
+
+    cd CubicDoggo_06Z/
+    source ../CubicDoggo_06Z_env/bin/activate
+    colcon build --cmake-clean-first
+    source install/setup.bash
+
+To launch on MuJoCo,
+
+    # vim CubicDoggo_06Z/src/my_robot_bringup/launch/cubic_doggo.mujoco.with_lifecycle.launch.py
+    ## choose: executable="cubic_doggo_lifecycle_onnx",
+    ros2 launch my_robot_bringup cubic_doggo.mujoco.with_lifecycle.launch.py
+
+To launch on Gazebo,
+
+    # vim CubicDoggo_06Z/src/my_robot_bringup/launch/cubic_doggo.gazebo.with_lifecycle.launch.py
+    ## echoose: xecutable="cubic_doggo_lifecycle_onnx",
+    ros2 launch my_robot_bringup cubic_doggo.gazebo.with_lifecycle.launch.py
+
+To launch on the real robot,
+
+    # vim CubicDoggo_06Z/src/my_robot_bringup/launch/cubic_doggo.with_lifecycle.launch.py
+    ## choose: executable="cubic_doggo_lifecycle_onnx",
+    ros2 launch my_robot_bringup cubic_doggo.with_lifecycle.launch.py
 
 ## References:
 
