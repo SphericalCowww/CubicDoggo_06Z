@@ -57,34 +57,37 @@ class CubicDoggoLifecycleManager : public rclcpp_lifecycle::LifecycleNode {
 public:
     explicit CubicDoggoLifecycleManager(const rclcpp::NodeOptions & options)
     : rclcpp_lifecycle::LifecycleNode("cubic_doggo_lifecycle", options) {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:constructor(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:constructor(): %s", 
+                    current_lifecycle_state_.c_str());
 
         callback_group_ = create_callback_group(rclcpp::CallbackGroupType::Reentrant);
         moveit_node_ = std::make_shared<rclcpp::Node>("moveit_interface_node", this->get_namespace(), options);
         exec_action_client_ = rclcpp_action::create_client<ExecuteTrajectory>(moveit_node_, "/execute_trajectory");
  
         current_lifecycle_state_ = "state_initialized";
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:constructor(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:constructor(): %s", 
+                    current_lifecycle_state_.c_str());
     }
     CallbackReturn on_configure(const rclcpp_lifecycle::State &) override {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): %s", 
+                    current_lifecycle_state_.c_str());
 
         auto now = this->now();
         bool use_sim_time = false;
         this->get_parameter("use_sim_time", use_sim_time);    
         if (use_sim_time == true) {
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): "
                                       "simulation does not require clock synchronization");
         } else if (now.seconds() < 1577836800) { // timestamp for 2020
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): system clock not synced " 
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): system clock not synced " 
                                        "now at %.6f sec (%ld ns)", now.seconds(), now.nanoseconds());
             return CallbackReturn::FAILURE;
         } else {
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): system clock now synced "
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): system clock now synced "
                                       "at %.6f sec (%ld ns)", now.seconds(), now.nanoseconds());
         }
         if (!exec_action_client_->wait_for_action_server(std::chrono::seconds(2))) {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): "
                                        "ExecuteTrajectory action server not available");
             return CallbackReturn::FAILURE;
         }
@@ -92,7 +95,7 @@ public:
         for (std::size_t legIdx = 0; legIdx < legN_; legIdx++) {
             leg_interface_[legIdx] = std::make_shared<MoveGroupInterface>(moveit_node_, planning_group_[legIdx]);
             if (!leg_interface_[legIdx]->startStateMonitor(2.0)) {
-                RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+                RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): "
                                            "MoveGroupInterface state %s invalide",
                              planning_group_[legIdx].c_str());
                 return CallbackReturn::FAILURE;
@@ -100,7 +103,7 @@ public:
         }
         all_legs_interface_ = std::make_shared<MoveGroupInterface>(moveit_node_, all_legs_planning_group_);
         if (!all_legs_interface_->startStateMonitor(2.0)) {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): "
                                        "MoveGroupInterface state %s invalide", 
                          all_legs_planning_group_.c_str());
             return CallbackReturn::FAILURE;
@@ -125,14 +128,14 @@ public:
         if (param_client->wait_for_service(std::chrono::seconds(3))) {
             if (param_client->has_parameter("update_rate")) {
                 update_rate_ = param_client->get_parameter<int>("update_rate");
-                RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+                RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): "
                                           "successfully synced update_rate: %d Hz", update_rate_);
             } else {
-                RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+                RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): "
                                           "'update_rate' param missing in controller_manager. Using 100Hz.");
             }
         } else {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): controller_manager not found");
+            RCLCPP_ERROR(get_logger(),"CubicDoggoLifecycleManager_onnx:on_configure(): controller_manager not found");
         }
 
         state_service_ = this->create_service<std_srvs::srv::Trigger>(
@@ -156,7 +159,7 @@ public:
 
         for (std::size_t legIdx = 0; legIdx < legN_; ++legIdx) {
             loadCurrentRobotState_(legIdx);
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): "
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): "
                                       "current end effector (x, y, z) = (%lf, %lf, %lf)",
                         endEffector_x_[legIdx], endEffector_y_[legIdx], endEffector_z_[legIdx]);
         }
@@ -174,16 +177,18 @@ public:
         vec_norm_path_   = this->get_parameter("policy_vec_norm_path").as_string();
         onnx_model_path_ = this->get_parameter("policy_model_path").as_string();
         if (initializeOnnxModel_() == false) {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:on_configure(): onnx init failed");
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): onnx init failed");
             return CallbackReturn::FAILURE;
         }
 
         current_lifecycle_state_ = "state_configured";
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_configure(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_configure(): %s", 
+                    current_lifecycle_state_.c_str());
         return CallbackReturn::SUCCESS;
     }
     CallbackReturn on_activate(const rclcpp_lifecycle::State &) override {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_activation(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_activation(): %s", 
+                    current_lifecycle_state_.c_str());
 
         auto sub_options = rclcpp::SubscriptionOptions();
         sub_options.callback_group = callback_group_;
@@ -243,11 +248,12 @@ public:
         walking_thread_      = std::thread(&CubicDoggoLifecycleManager::controlLoop_, this);
 
         current_lifecycle_state_ = "state_stationary";
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_activation(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_activation(): %s", 
+                    current_lifecycle_state_.c_str());
         return CallbackReturn::SUCCESS;
     }
     CallbackReturn on_deactivate(const rclcpp_lifecycle::State &) override {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_deactivation(): %s", 
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_deactivation(): %s", 
                     current_lifecycle_state_.c_str());
         setDefaultVelAccScaler_(DEFAULT_VEL_SCALE, DEFAULT_ACC_SCALE);
 
@@ -270,12 +276,13 @@ public:
         }
         all_legs_interface_->stop();
         current_lifecycle_state_ = "state_stopped";
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_deactivation(): %s", 
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_deactivation(): %s", 
                                   current_lifecycle_state_.c_str());
         return CallbackReturn::SUCCESS;
     }
     CallbackReturn on_cleanup(const rclcpp_lifecycle::State &) override {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_cleanup(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_cleanup(): %s",
+                    current_lifecycle_state_.c_str());
         setDefaultVelAccScaler_(DEFAULT_VEL_SCALE, DEFAULT_ACC_SCALE);
 
         for (std::size_t legIdx = 0; legIdx < legN_; legIdx++) {
@@ -289,11 +296,12 @@ public:
         ort_session_.reset(); ort_env_.reset(); 
 
         current_lifecycle_state_ = "state_configured";
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_clean(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_clean(): %s", current_lifecycle_state_.c_str());
         return CallbackReturn::SUCCESS;
     }
     CallbackReturn on_shutdown(const rclcpp_lifecycle::State &) override {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_shutdown(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_shutdown(): %s", 
+                    current_lifecycle_state_.c_str());
         setDefaultVelAccScaler_(DEFAULT_VEL_SCALE, DEFAULT_ACC_SCALE);
 
         keep_running_thread_ = false;
@@ -311,7 +319,8 @@ public:
         all_legs_interface_->stop();
     
         current_lifecycle_state_ = "state_stopped";
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:on_shutdown(): %s", current_lifecycle_state_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:on_shutdown(): %s", 
+                    current_lifecycle_state_.c_str());
         return CallbackReturn::SUCCESS;
     }
     rclcpp::Node::SharedPtr get_moveit_node() const { 
@@ -320,27 +329,27 @@ public:
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 private:
     void legNamedCallback_(const ros_string::SharedPtr msg) {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:legNamedCallback(): command received");
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:legNamedCallback(): command received");
         setDefaultVelAccScaler_(DEFAULT_VEL_SCALE, DEFAULT_ACC_SCALE);
         legNamedTarget_(msg->data);
     }
     void legJointCallback_(const ros_array::SharedPtr msg) {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:legJointCallback(): command received");
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:legJointCallback(): command received");
         setDefaultVelAccScaler_(DEFAULT_VEL_SCALE, DEFAULT_ACC_SCALE);
         if (msg->data.size() != (1+jointNperLeg_)) {
-            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:legJointCallback(): message length mismatch");
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager_onnx:legJointCallback(): message length mismatch");
             return;
         }
         legJointTarget_(msg->data);
     }
     void legPoseCallback_(const custom_pose_array::SharedPtr msg) {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:legPoseCallback(): command received");
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:legPoseCallback(): command received");
         setDefaultVelAccScaler_(DEFAULT_VEL_SCALE, DEFAULT_ACC_SCALE);
         legPoseTarget_(msg->leg_index, msg->x, msg->y, msg->z);
     }
     void legFeetCallback_(const custom_feet_array::SharedPtr msg) {
         if ((msg->x != target_x_stride_) || ((msg->y != target_y_stride_))) {
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:legFeetCallback(): command received, "
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:legFeetCallback(): command received, "
                                       "(x, y) = (%lf, %lf)", msg->x, msg->y);
             if (msg->x < -1.0) {
                 target_x_stride_ = -1.0;
@@ -365,14 +374,15 @@ private:
             all_legs_interface_->setNamedTarget("stand_mid");
             idle_name_ = "stand_mid";
             planAndExecute_();
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:legNamedTarget_(): "
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:legNamedTarget_(): "
                                       "idle_name_ = %s",idle_name_.c_str());
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
         all_legs_interface_->setNamedTarget(name);
         idle_name_ = name;
         planAndExecute_(); 
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:legNamedTarget_(): idle_name_ = %s",idle_name_.c_str());
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:legNamedTarget_(): idle_name_ = %s",
+                    idle_name_.c_str());
 
         if (name == "stand") {
             control_initialized_ = false; 
@@ -402,7 +412,7 @@ private:
             
         success_ = leg_interface_[legIdx]->setApproximateJointValueTarget(target_pose, endEffector_link_[legIdx]);
         if (success_ == false) {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:legPoseTarget_(): "
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:legPoseTarget_(): "
                                        "failed to find IK solution for target!");
             return;
         }
@@ -416,11 +426,11 @@ private:
                                     std::pow(endEffector_y_[legIdx] - y, 2) +
                                     std::pow(endEffector_z_[legIdx] - z, 2));
         if (to_target_dist_.load() > to_target_dist_thres_.load()) {
-            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:legPoseTarget_(): "
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager_onnx:legPoseTarget_(): "
                                       "target unreachable (likely hit a joint limit). Settled %f meters away.", 
                                       to_target_dist_.load());
         }
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:legSetPoseTarget_(): "
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:legSetPoseTarget_(): "
                                   "current end effector (i, x, y, z) = (%zu, %lf, %lf, %lf)",
                                   legIdx, endEffector_x_[legIdx], endEffector_y_[legIdx], endEffector_z_[legIdx]);    
         is_busy_ = false;
@@ -495,7 +505,7 @@ private:
                                              0.0, nullptr, kinematics_options);
             if (success_ == false) {
                 RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000, 
-                                     "CubicDoggoLifecycleManager:sineWalkGait_(): "
+                                     "CubicDoggoLifecycleManager_onnx:sineWalkGait_(): "
                                      "IK failed for leg %zu. Skipping frame", legIdx);
             }
         }
@@ -507,7 +517,8 @@ private:
                          std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
         for (std::size_t legIdx = 0; legIdx < legN_; ++legIdx) {
             loadCurrentRobotState_(legIdx);
-            response->message = "CubicDoggoLifecycleManager:handleGetState_(): current end effector (x, y, z) = ("
+            response->message = "CubicDoggoLifecycleManager_onnx:handleGetState_(): "
+                                "current end effector (x, y, z) = ("
                                +std::to_string(endEffector_x_[legIdx]) + ", "
                                +std::to_string(endEffector_y_[legIdx]) + ", "
                                +std::to_string(endEffector_z_[legIdx]) + ")";
@@ -541,7 +552,8 @@ private:
                     }
                 }
                 last_action_.assign(jointN_, 0.0f);
-                RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:handleONNXrequest_(): initial_ctrl_ captured");
+                RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:handleONNXrequest_(): "
+                                          "initial_ctrl_ captured");
             } else {
                 response->success = false;
                 response->message = "no joint_state";
@@ -554,7 +566,7 @@ private:
     }
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     void controlLoop_() {
-        rclcpp::get_logger("").set_level(rclcpp::Logger::Level::Warn);        // for silencing output
+        rclcpp::get_logger("").set_level(rclcpp::Logger::Level::Warn);        // for silencing output, verbosity
 
         // https://docs.ros.org/en/jazzy/p/control_toolbox/generated/structcontrol__toolbox_1_1AntiWindupStrategy.html
         control_toolbox::AntiWindupStrategy aw_strat;
@@ -602,12 +614,12 @@ private:
             }
             
             previous_time = current_time;
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:controlLoop_(): time = %lf\n"
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:controlLoop_(): time = %lf\n"
                                       "    is_walking_ = %d, is_imu_ = %d, is_onnx_ = %d, "
                                       "control_initialized_ = %d, idle_name_ = %s", 
                                       current_time.seconds(), is_walking_.load(), is_imu_.load(), is_onnx_.load(),
                                       control_initialized_.load(), idle_name_.c_str());
-            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:controlLoop_(): "
+            RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:controlLoop_(): "
                                       "raw pitch = %lf, raw roll = %lf", 
                                       current_pitch_.load(std::memory_order_relaxed), 
                                       current_roll_ .load(std::memory_order_relaxed));
@@ -632,7 +644,7 @@ private:
                 pitch_pid_.reset();
                 roll_pid_ .reset();
                 control_initialized_ = true;    
-                RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:controlLoop_(): home positions captured.");
+                RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:controlLoop_(): home positions captured.");
             }
        
             moveit::core::RobotStatePtr target_state;
@@ -658,7 +670,7 @@ private:
                 imu_z_corr_[1] = -pitch_corr + roll_corr;
                 imu_z_corr_[2] = +pitch_corr - roll_corr;
                 imu_z_corr_[3] = -pitch_corr - roll_corr;
-                RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:controlLoop_():\n"
+                RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:controlLoop_():\n"
                                           "shifted pitch = %lf (vel = %lf), shifted roll = %lf (vel = %lf)\n"
                                           "full pitch corr = %lf (kD corr = %lf), "
                                           "full roll corr = %lf (kD corr = %lf)\n"
@@ -691,7 +703,7 @@ private:
                     std::vector<float> raw_obs;
                     if (buildObservation_(raw_obs) == false) {
                         RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 1000,
-                                             "CubicDoggoLifecycleManager:controlLoop_(): loading raw_obs failed");
+                                            "CubicDoggoLifecycleManager_onnx:controlLoop_(): loading raw_obs failed");
                     } else {
                         std::vector<float> norm_obs(raw_obs.size());
                         for (size_t obs_idx = 0; obs_idx < raw_obs.size(); obs_idx++) {
@@ -758,7 +770,8 @@ private:
         if (success_) {
             leg_interface_[legIdx]->execute(move_plan_[legIdx]);
         } else {
-            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_exe(%zu): planning failed", legIdx);
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager_onnx:planAndExecute_exe(%zu): planning failed", 
+                        legIdx);
         }
     }
     void planAndExecute_exe() {
@@ -766,7 +779,7 @@ private:
         if (success_) {
             all_legs_interface_->execute(all_legs_move_plan_);
         } else {
-            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_exe(): planning failed");
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager_onnx:planAndExecute_exe(): planning failed");
         }
     }
     void planAndExecute_pub(std::size_t legIdx) {
@@ -775,7 +788,8 @@ private:
             traj_msg.header.stamp = this->get_clock()->now();
             joint_publisher_->publish(traj_msg);
         } else {
-            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_pub(%zu): planning failed", legIdx);
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager_onnx:planAndExecute_pub(%zu): planning failed", 
+                        legIdx);
         }
     }
     void planAndExecute_pub() {
@@ -784,13 +798,13 @@ private:
             traj_msg.header.stamp = this->get_clock()->now();
             joint_publisher_->publish(traj_msg);
         } else {
-            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager:planAndExecute_pub(): planning failed");
+            RCLCPP_WARN(get_logger(), "CubicDoggoLifecycleManager_onnx:planAndExecute_pub(): planning failed");
         }
     }
     void loadCurrentRobotState_(std::size_t legIdx) {
         current_robot_state_[legIdx] = leg_interface_[legIdx]->getCurrentState(0.5);       // wait up to 0.5 seconds 
         if (!current_robot_state_[legIdx]) {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:loadCurrentRobotState_(%zu): "
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:loadCurrentRobotState_(%zu): "
                                        "timeout to fetch current robot state", legIdx);
             return;
         }
@@ -803,7 +817,7 @@ private:
     void loadCurrentRobotState_() {
         all_legs_current_robot_state_ = all_legs_interface_->getCurrentState(2.0);       // wait up to 2.0 seconds 
         if (!all_legs_current_robot_state_) {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:loadCurrentRobotState_(): "
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:loadCurrentRobotState_(): "
                                        "timeout to fetch current robot state");
             return;
         }
@@ -821,11 +835,11 @@ private:
     }
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     bool initializeOnnxModel_() {
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:initializeOnnxModel_(): "
                                   "loading vector normalization file: %s", vec_norm_path_.c_str());
         std::ifstream ifstream_obj(vec_norm_path_);
         if (!ifstream_obj.is_open()) {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:initializeOnnxModel_(): "
                                        "failed to load vec_norm_path_");
             return false;
         }
@@ -842,7 +856,7 @@ private:
         }
 
         ///////////////
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:initializeOnnxModel_(): "
                                   "loading ONNX model file: %s", onnx_model_path_.c_str());
         ort_env_ = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "CubicDoggoPPO");
         Ort::SessionOptions session_options;
@@ -858,7 +872,7 @@ private:
 
         auto input_shape = ort_session_->GetInputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape();
         onnx_input_dim_ = input_shape.back();
-        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
+        RCLCPP_INFO(get_logger(), "CubicDoggoLifecycleManager_onnx:initializeOnnxModel_(): "
                                   "onnx input dim = %ld", long(onnx_input_dim_));
 
         ///////////////
@@ -876,7 +890,7 @@ private:
         };
         int joint_number = std::stoi(ort_meta_map("joint_number", std::to_string(jointN_).c_str()));
         if (joint_number != int(jointN_)) {
-            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager:initializeOnnxModel_(): "
+            RCLCPP_ERROR(get_logger(), "CubicDoggoLifecycleManager_onnx:initializeOnnxModel_(): "
                                        "ONNX joint_number mismatch");
             return false;
         }

@@ -16,6 +16,7 @@ def generate_launch_description():
     robot_moveit_config_path = get_package_share_path("cubic_doggo_moveit_config")   
     robot_commander_py_path  = get_package_share_path('my_robot_commander_py')
  
+    #urdf_path          = os.path.join(robot_description_path,   "urdf",   "cubic_doggo.urdf.mock.xacro")
     urdf_path          = os.path.join(robot_description_path,   "urdf",   "cubic_doggo.urdf.xacro")
     robot_controllers  = os.path.join(robot_bringup_path,       "config", "cubic_doggo_controllers.yaml")
     moveit_config_path = os.path.join(robot_moveit_config_path, "launch", "move_group.launch.py")
@@ -132,7 +133,7 @@ def generate_launch_description():
         all_legs_controller_spawner,
         moveit_launcher,
         lifecycle_node,
-        rviz_node,
+        #rviz_node,
         joy_driver_node,
         joy_controller_node,
         #peripheral_node,
