@@ -152,15 +152,19 @@ Pinocchio is used as an IK solver to generate a predefined walk gait for later i
 
 ### Reinforcement learning with Gymnasium and stable-baselines3
 
-Gymnasium sets up the environment for reinforcement learning, while stable-baselines3 provides the PPO optimization method for the reward/penalty terms from Gymnasium,
+Gymnasium sets up the environment for reinforcement learning, while stable-baselines3 provides the PPO optimization method for the reward/penalty terms from Gymnasium. To train on standing on flat ground,
 
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
-    ros2 run cubic_doggo_mujoco_ppo_stand_train_kinematicHeight
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand_train 
     tensorboard --logdir=ppo_tensorboards
     # open in browser: http://localhost:6006
+
+To train on standing on a fixed slope,
+
+<img src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_MuJoCo.webp" height="300">
 
 ### Deploying model to MuJoCo
 
