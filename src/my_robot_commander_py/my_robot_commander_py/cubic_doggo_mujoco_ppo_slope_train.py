@@ -21,17 +21,23 @@ from ._GlobalFuncs import *
 PKG_SHARE_PATH = get_package_share_directory('my_robot_description')
 ##################################################################################################################################
 TRAIN_CONFIG = {
+            "render_mode":       None,
+            #"render_mode":       "human",                                        # for visualization
             "xacro_path": os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.urdf.xacro'),
-            "mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_slope.xml'),
 
-            #"render_mode":          None,
-            "render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope1_",
-            #"policy_model_name":    "cubic_doggo_261023_slope1_",
+            #"toggle_slope_var":  False,
+            #"mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_slope.xml'),
+            #"policy_model_name": "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope1_",
+            #"policy_model_name": "cubic_doggo_261023_slope1_",
+                        
+            "toggle_slope_var":  True,
+            "mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_slope_var.xml'),
+            "policy_model_name": "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope_var1_",
+            #"policy_model_name": "cubic_doggo_261023_slope_var1_",
 
             "rand_seed":                                1,
             "ppo_stepN":                                1_000_000,                  # minimum is n_envs*n_steps, 16*2048 = 32768
-            "ppo_checkpointN":                          60,
+            "ppo_checkpointN":                          80,
             "curriculum_maxN":                          1_000_000 * 40,             # when curriculum arrives at final value
             "learning_rate":                            1.0E-5,
             "entropy_coefficient":                      0.02,                       # determine exploration rate
@@ -41,7 +47,7 @@ TRAIN_CONFIG = {
             
             "time_per_step":                            0.003,                      # s, default = 0.002
             "stepN_per_action":                         4,                          # steps
-            "skip_first_stepN":                         40,                         # steps 
+            "skip_first_stepN":                         100,                         # steps 
             "truncate_max_time":                        20.0,                       # s
             "text_update_time":                         1.0,                        # s
 
@@ -58,6 +64,7 @@ TRAIN_CONFIG = {
             "toggle_init_var_schedule":                 True,
                 "init_joint_pos_var_range":             [-np.pi/36, np.pi/36],
                 "init_rot_var_range":                   [-np.pi,    np.pi],
+                "init_slope_var_range":                 [-np.pi/9,  np.pi/9],
             "toggle_rew_pen_schedule":                  True,
                 "y_final_val":                          2.0,
                 "x_mid_point":                          0.4,
@@ -173,6 +180,7 @@ class CubicDoggoEnv(gym.Env):
         self.init_cond_id    = mujoco.mj_name2id(self.mujoco_model, mujoco.mjtObj.mjOBJ_KEY, "initial_condition")
         base_q = self.mujoco_model.key_qpos[self.init_cond_id, 3:7]
         self.base_q = pinocchio.Quaternion(base_q[0], base_q[1], base_q[2], base_q[3])
+        self.mujoco_slope_ref_pos = self.mujoco_model.geom_pos[self.mujoco_slope_id, :].copy()
         ###
         urdf_pinocchio = re.sub(r'<joint name="world_base_link".*?</joint>', '', urdf_content, flags=re.DOTALL)
         urdf_pinocchio = urdf_pinocchio.replace('<link name="world"/>', '')
@@ -302,6 +310,8 @@ class CubicDoggoEnv(gym.Env):
         if self.init_var_schedule > 0:
             init_joint_pos_var_range = np.array(TRAIN_CONFIG["init_joint_pos_var_range"])
             init_rot_var_range       = np.array(TRAIN_CONFIG["init_rot_var_range"])
+            toggle_slope_var         = np.array(TRAIN_CONFIG["toggle_slope_var"])
+            init_slope_var_range     = np.array(TRAIN_CONFIG["init_slope_var_range"])
             # pos_var            
             pos_shift = self.np_random.uniform(*(self.init_var_schedule*init_joint_pos_var_range), size=self.joint_number)
             self.mujoco_data.qpos[-self.joint_number:] += pos_shift
@@ -312,6 +322,15 @@ class CubicDoggoEnv(gym.Env):
             angle_q = pinocchio.Quaternion(angle_R)
             angle_q = angle_q*self.base_q
             self.mujoco_data.qpos[3:7] = np.array([angle_q.w, angle_q.x, angle_q.y, angle_q.z], dtype=np.float64)
+            # slope var
+            if toggle_slope_var == True:
+                if self.mujoco_model.geom_type[self.mujoco_slope_id] == mujoco.mjtGeom.mjGEOM_SPHERE:
+                    slope_angle   = self.np_random.uniform(*(self.init_var_schedule*init_slope_var_range))
+                    sphere_radius = self.mujoco_model.geom_size[self.mujoco_slope_id, 0]
+                    slope_x_shift = sphere_radius*np.sin(slope_angle)
+                    slope_z_shift = sphere_radius*(1.0 - np.cos(slope_angle))
+                    self.mujoco_model.geom_pos[self.mujoco_slope_id, 0] = self.mujoco_slope_ref_pos[0] + slope_x_shift
+                    self.mujoco_model.geom_pos[self.mujoco_slope_id, 2] = self.mujoco_slope_ref_pos[2] + slope_z_shift
 
         if self.skip_first_stepN > 0:
             for _ in range(self.skip_first_stepN):
