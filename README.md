@@ -162,11 +162,14 @@ Gymnasium sets up the environment for reinforcement learning, while stable-basel
     # Update mjcf_path
     ros2 run my_robot_commander_py cubic_doggo_mujoco_pin_stand_test
     # Test out the robot's vertical distance, because any geometry overlap results in an extreme repulsive force
+    vim CubicDoggo_06Z/src/my_robot_commander_py/my_robot_commander_py/cubic_doggo_mujoco_ppo_stand_train.py
+    # Test out with visualization, but only 1 CPU core, by setting "render_mode" to "human" in the configuration file
+    # Check all other configuration file parameters, including using kinematic versus privileged height and/or toggle to apply horizontal push force or not
     ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand_train 
     tensorboard --logdir=ppo_tensorboards
     # open in browser: http://localhost:6006
 
-To train on standing on a fixed slope,
+To train on standing on a slope (check configuration file for fixed vs varying slope),
 
     ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_slope_train 
 
