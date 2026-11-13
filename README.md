@@ -1,6 +1,8 @@
 # CubicDoggo 06Z: Homemade 12-DOF 4-Legged Robot Recipe with Simulation and Reinforcement Learning
 
-Cubic Doggo 06Z Neucommu is an upgrade from [Cubic Doggo 06R High Mobility](https://github.com/SphericalCowww/CubicDoggo_06R). The goal is to integrate simulation (Gazebo/MuJoCo) and reinforcement learning (PyTorch) to control the standing/walking gait. 
+Cubic Doggo 06Z Neucommu is an upgrade from [Cubic Doggo 06R High Mobility](https://github.com/SphericalCowww/CubicDoggo_06R). The goal is to integrate simulation (Gazebo/MuJoCo) and reinforcement learning (Gymnasium with Proximal Policy Optimization (PPO) from Stable Baselines3 (SB3)) to control the standing/walking gait using closed-loop observations, including joint position, joint velocities, and IMU gyro/pitch/roll values.
+
+Trained models can be found on [Hugging Face](https://huggingface.co/SphericalCowww/CubicDoggo_06Z) and [GitHub](https://github.com/SphericalCowww/CubicDoggo_06Z/tree/main/src/my_robot_commander_py/deploy_model).
 
 Demos: Gazebo with Plotjuggler ([Reddit](https://www.reddit.com/r/ROS/comments/1vomb40/cubic_doggo_update_on_gazebo/)), Gazebo sim vs real ([Reddit](https://www.reddit.com/r/robotics/comments/1vpu2sd/cubic_doggo_found_a_nice_spot_on_the_ramp/)), MuJoCo sim ([Reddit](https://www.reddit.com/r/ROS/comments/1w8vm74/cubic_doggo_update_ros2_bridge_to_mujoco/), Pinocchio walk ([Reddit](https://www.reddit.com/r/robotics/comments/1wgilv9/cubic_doggo_ik_walking_with_pinocchio/)), Gym SB3 PPO RL for standing ([Reddit](https://www.reddit.com/r/reinforcementlearning/comments/1xbg89q/cubic_doggo_update_training_with_horizontal_pushes/))
 
@@ -150,15 +152,19 @@ Pinocchio is used as an IK solver to generate a predefined walk gait for later i
 
 ### Reinforcement learning with Gymnasium and stable-baselines3
 
-Gymnasium sets up the environment for reinforcement learning, while stable-baselines3 provides the PPO optimization method for the reward/penalty terms from Gymnasium,
+Gymnasium sets up the environment for reinforcement learning, while stable-baselines3 provides the PPO optimization method for the reward/penalty terms from Gymnasium. To train on standing on flat ground,
 
     cd CubicDoggo_06Z/
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
-    ros2 run cubic_doggo_mujoco_ppo_stand_train_kinematicHeight
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand_train 
     tensorboard --logdir=ppo_tensorboards
     # open in browser: http://localhost:6006
+
+To train on standing on a fixed slope,
+
+<img src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_MuJoCo.webp" height="300">
 
 ### Deploying model to MuJoCo
 
