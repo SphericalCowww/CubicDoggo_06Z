@@ -74,7 +74,7 @@ Adding the following line of 20 ms delay in IMU does cause oscillatory behavior 
     python3 -m venv CubicDoggo_06Z_env/
     source CubicDoggo_06Z_env/bin/activate
     pip install --upgrade pip
-    pip install "numpy<2"
+    pip install numpy==1.26.4
     pip install setuptools jinja2 pyyaml typeguard
     pip install pybullet 
     pip install pin                                                     # for pinocchio
