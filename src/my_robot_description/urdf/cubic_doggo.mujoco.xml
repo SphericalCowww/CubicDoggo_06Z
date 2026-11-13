@@ -47,10 +47,11 @@
         </body>
     </worldbody>
     <keyframe>
-        <key name="initial_condition" qpos="0 0 0.15  0 0 1 0  3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14
-                                                               3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14" 
-                                      ctrl="                   3.14 2.54 4.14       3.14 3.74 2.14
-                                                               3.14 2.54 4.14       3.14 3.74 2.14"/>
+        <key name="initial_condition" qpos="0 0 0.15  0 1 0 0  
+                                            3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14
+                                            3.14 2.54 4.14 4.14  3.14 3.74 2.14 2.14" 
+                                      ctrl="3.14 2.54 4.14       3.14 3.74 2.14
+                                            3.14 2.54 4.14       3.14 3.74 2.14"/>
     </keyframe>
     <equality>
         <joint joint1="servo3_calfFeet_FL" joint2="servo3_calfJoint_FL" polycoef="0 1 0 0 0"/>

@@ -24,9 +24,9 @@ TRAIN_CONFIG = {
             "xacro_path": os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.urdf.xacro'),
             "mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_slope.xml'),
 
-            "render_mode":          None,
-            #"render_mode":          "human",                                        # for visualization
-            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope3_",
+            #"render_mode":          None,
+            "render_mode":          "human",                                        # for visualization
+            "policy_model_name":    "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope1_",
             #"policy_model_name":    "cubic_doggo_261023_slope1_",
 
             "rand_seed":                                1,
