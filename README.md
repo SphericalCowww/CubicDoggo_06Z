@@ -158,11 +158,17 @@ Gymnasium sets up the environment for reinforcement learning, while stable-basel
     source ../CubicDoggo_06Z_env/bin/activate
     colcon build --cmake-clean-first
     source install/setup.bash
+    vim CubicDoggo_06Z/src/my_robot_commander_py/my_robot_commander_py/cubic_doggo_mujoco_pin_stand_test.py
+    # Update mjcf_path
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_pin_stand_test
+    # Test out the robot's vertical distance, because any geometry overlap results in an extreme repulsive force
     ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_stand_train 
     tensorboard --logdir=ppo_tensorboards
     # open in browser: http://localhost:6006
 
 To train on standing on a fixed slope,
+
+    ros2 run my_robot_commander_py cubic_doggo_mujoco_ppo_slope_train 
 
 <img src="https://github.com/SphericalCowww/CubicDoggo_06Z/blob/main/fig_MuJoCo.webp" height="300">
 
