@@ -6,6 +6,7 @@ import numpy as np
 import xacro
 import mujoco, mujoco.viewer
 import pinocchio
+from scipy.spatial.transform import Rotation
 import torch
 torch.use_deterministic_algorithms(True)
 import gymnasium as gym
@@ -32,13 +33,13 @@ TRAIN_CONFIG = {
                         
             "toggle_slope_var":  True,
             "mjcf_path":  os.path.join(PKG_SHARE_PATH, 'urdf', 'cubic_doggo.mujoco.ppo_slope_var.xml'),
-            "policy_model_name": "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope_var1_",
+            "policy_model_name": "cubic_doggo_"+str(datetime.date.today().strftime("%y%m%d"))+"_slope_var6_",
             #"policy_model_name": "cubic_doggo_261023_slope_var1_",
 
             "rand_seed":                                1,
             "ppo_stepN":                                1_000_000,                  # minimum is n_envs*n_steps, 16*2048 = 32768
-            "ppo_checkpointN":                          80,
-            "curriculum_maxN":                          1_000_000 * 40,             # when curriculum arrives at final value
+            "ppo_checkpointN":                          150,
+            "curriculum_maxN":                          1_000_000 * 100,             # when curriculum arrives at final value
             "learning_rate":                            1.0E-5,
             "entropy_coefficient":                      0.02,                       # determine exploration rate
             
@@ -64,7 +65,7 @@ TRAIN_CONFIG = {
             "toggle_init_var_schedule":                 True,
                 "init_joint_pos_var_range":             [-np.pi/36, np.pi/36],
                 "init_rot_var_range":                   [-np.pi,    np.pi],
-                "init_slope_var_range":                 [-np.pi/9,  np.pi/9],
+                "init_slope_var_range":                 [-np.pi/12, np.pi/12],
             "toggle_rew_pen_schedule":                  True,
                 "y_final_val":                          2.0,
                 "x_mid_point":                          0.4,
@@ -235,8 +236,15 @@ class CubicDoggoEnv(gym.Env):
         self.term_data = {term_key:False for term_key in self.term_keys}
         self.reset_counters = np.zeros(1 + len(self.term_keys), dtype=np.int64)
 
-        self.privileged_height = None
-        self.kinematic_height  = None
+        self.privileged_height       = None
+        self.kinematic_height        = None
+        self.privileged_height_scale = 1.0
+        if self.mujoco_model.geom_type[self.mujoco_slope_id] == mujoco.mjtGeom.mjGEOM_BOX:
+            mujoco_rot_matrix = np.zeros(9)
+            mujoco.mju_quat2Mat(mujoco_rot_matrix, self.mujoco_model.geom_quat[self.mujoco_slope_id])
+            mujoco_rot_matrix = mujoco_rot_matrix.reshape(3, 3)
+            slope_angle = Rotation.from_matrix(mujoco_rot_matrix).as_euler('xyz')[1]
+            self.privileged_height_scale = np.cos(slope_angle)
     def _get_obs(self):
         joint_pos = self.mujoco_data.qpos[-self.joint_number:].copy()
         joint_vel = self.mujoco_data.qvel[-self.joint_number:].copy()
@@ -274,7 +282,8 @@ class CubicDoggoEnv(gym.Env):
         mujoco_base_curr = self.mujoco_data.xpos[mujoco_base_id]
         rayCast_distance = mujoco.mj_ray(m=self.mujoco_model, d=self.mujoco_data, pnt=mujoco_base_curr, vec=[0.0, 0.0, -1.0],
                                          geomgroup=None, flg_static=1, bodyexclude=mujoco_base_id, geomid=self.ray_geom_id)
-        self.privileged_height = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
+        self.privileged_height  = rayCast_distance if rayCast_distance >= 0 else mujoco_base_curr[2]
+        self.privileged_height *= self.privileged_height_scale
 
         observations = None
         if self.height_def == "kinematic":
@@ -323,14 +332,17 @@ class CubicDoggoEnv(gym.Env):
             angle_q = angle_q*self.base_q
             self.mujoco_data.qpos[3:7] = np.array([angle_q.w, angle_q.x, angle_q.y, angle_q.z], dtype=np.float64)
             # slope var
+            slope_angle = 0
             if toggle_slope_var == True:
                 if self.mujoco_model.geom_type[self.mujoco_slope_id] == mujoco.mjtGeom.mjGEOM_SPHERE:
                     slope_angle   = self.np_random.uniform(*(self.init_var_schedule*init_slope_var_range))
+                    #slope_angle   = self.np_random.uniform(*init_slope_var_range)
                     sphere_radius = self.mujoco_model.geom_size[self.mujoco_slope_id, 0]
                     slope_x_shift = sphere_radius*np.sin(slope_angle)
                     slope_z_shift = sphere_radius*(1.0 - np.cos(slope_angle))
                     self.mujoco_model.geom_pos[self.mujoco_slope_id, 0] = self.mujoco_slope_ref_pos[0] + slope_x_shift
                     self.mujoco_model.geom_pos[self.mujoco_slope_id, 2] = self.mujoco_slope_ref_pos[2] + slope_z_shift
+                    self.privileged_height_scale = np.cos(slope_angle)
 
         if self.skip_first_stepN > 0:
             for _ in range(self.skip_first_stepN):
